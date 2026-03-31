@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Saranya Jewellery",
+    "slug": "saranya-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": ["**/*"],
+    "splash": {
+      "image": "./assets/SaranyaLOGO.jpg",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/SaranyaLOGO.jpg",
+        "backgroundColor": "#ffffff"
+      }
+    }
+  }
+}
