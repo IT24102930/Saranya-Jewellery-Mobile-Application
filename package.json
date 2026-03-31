@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "node backend/server.js",
+    "dev:all": "kill-port 3000 5173 8081 8082 && concurrently -n backend,frontend,mobile -c green,cyan,magenta \"node backend/server.js\" \"npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173\" \"npm --prefix mobile run start -- --lan -c --port 8081\"",
     "start": "node backend/server.js",
     "frontend:install": "npm --prefix frontend install",
     "frontend:build": "npm --prefix frontend run build",
@@ -29,5 +30,9 @@
     "mongoose": "^9.1.5",
     "multer": "^2.1.0",
     "nodemailer": "^8.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "kill-port": "^2.0.1"
   }
 }
