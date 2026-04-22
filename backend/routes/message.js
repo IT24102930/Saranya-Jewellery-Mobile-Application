@@ -6,6 +6,18 @@ import Customer from '../models/Customer.js';
 
 const router = express.Router();
 
+function getStartOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+function parseValidUntilDate(validUntil) {
+  if (!validUntil) return undefined;
+  const parsed = new Date(validUntil);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 // Public route - Get active messages for customers (no auth required for viewing)
 router.get('/active', async (req, res) => {
   try {
@@ -16,7 +28,7 @@ router.get('/active', async (req, res) => {
         { validUntil: { $gte: new Date() } }
       ]
     })
-    .select('title message type validUntil createdAt')
+    .select('title message type validUntil createdAt discountPercentage couponCode')
     .sort({ createdAt: -1 })
     .limit(10);
     
@@ -135,6 +147,8 @@ router.post('/', hasRole('Customer Care', 'Admin'), async (req, res) => {
       type,
       status,
       validUntil,
+      discountPercentage,
+      couponCode,
       targetAudience,
       sendOnLogin
     } = req.body;
@@ -144,12 +158,27 @@ router.post('/', hasRole('Customer Care', 'Admin'), async (req, res) => {
       return res.status(400).json({ message: 'Title and message are required' });
     }
 
+    const parsedDiscount = Number(discountPercentage ?? 0);
+    if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > 100) {
+      return res.status(400).json({ message: 'Discount percentage must be between 0 and 100' });
+    }
+
+    const parsedValidUntil = parseValidUntilDate(validUntil);
+    if (validUntil && !parsedValidUntil) {
+      return res.status(400).json({ message: 'Invalid offer valid until date' });
+    }
+    if (parsedValidUntil && parsedValidUntil < getStartOfToday()) {
+      return res.status(400).json({ message: 'Offer valid until date cannot be in the past' });
+    }
+
     const newMessage = new Message({
       title,
       message,
       type: type || 'general',
       status: status || 'active',
-      validUntil,
+      validUntil: parsedValidUntil,
+      discountPercentage: parsedDiscount,
+      couponCode: couponCode || '',
       targetAudience: targetAudience || 'all',
       sendOnLogin: sendOnLogin !== undefined ? sendOnLogin : true,
       createdBy: req.session.staffId
@@ -184,15 +213,39 @@ router.put('/:id', hasRole('Customer Care', 'Admin'), async (req, res) => {
       type,
       status,
       validUntil,
+      discountPercentage,
+      couponCode,
       targetAudience,
       sendOnLogin
     } = req.body;
+
+    if (discountPercentage !== undefined) {
+      const parsedDiscount = Number(discountPercentage);
+      if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0 || parsedDiscount > 100) {
+        return res.status(400).json({ message: 'Discount percentage must be between 0 and 100' });
+      }
+      message.discountPercentage = parsedDiscount;
+    }
+
+    if (couponCode !== undefined) {
+      message.couponCode = couponCode;
+    }
+
+    if (validUntil !== undefined) {
+      const parsedValidUntil = parseValidUntilDate(validUntil);
+      if (validUntil && !parsedValidUntil) {
+        return res.status(400).json({ message: 'Invalid offer valid until date' });
+      }
+      if (parsedValidUntil && parsedValidUntil < getStartOfToday()) {
+        return res.status(400).json({ message: 'Offer valid until date cannot be in the past' });
+      }
+      message.validUntil = parsedValidUntil;
+    }
 
     if (title) message.title = title;
     if (messageText) message.message = messageText;
     if (type) message.type = type;
     if (status) message.status = status;
-    if (validUntil !== undefined) message.validUntil = validUntil;
     if (targetAudience) message.targetAudience = targetAudience;
     if (sendOnLogin !== undefined) message.sendOnLogin = sendOnLogin;
 
@@ -360,6 +413,7 @@ router.post('/:id/send-email', hasRole('Customer Care', 'Admin'), async (req, re
           <h2>${message.title}</h2>
           <p>${message.message}</p>
           ${message.validUntil ? `<p><small>Valid until ${new Date(message.validUntil).toLocaleDateString()}</small></p>` : ''}
+          ${message.couponCode ? `<p><strong>Coupon Code: ${message.couponCode}</strong></p>` : ''}
         `;
         
         const result = await emailService.sendCustomEmail(

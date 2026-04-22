@@ -43,6 +43,14 @@ router.post('/', async (req, res) => {
   try {
     const { email, password, fullName, role, status } = req.body;
 
+    if (!email || !password || !fullName || !role) {
+      return res.status(400).json({ message: 'Email, password, full name, and role are required' });
+    }
+
+    if (String(password).length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+
     const existingStaff = await Staff.findOne({ email });
     if (existingStaff) {
       return res.status(400).json({ message: 'Email already exists' });
@@ -77,27 +85,37 @@ router.post('/', async (req, res) => {
 // PUT /api/staff/:id - Update staff
 router.put('/:id', async (req, res) => {
   try {
-    const { fullName, role, status, isActive } = req.body;
-    
-    const updateData = {};
-    if (fullName) updateData.fullName = fullName;
-    if (role) updateData.role = role;
-    if (status) updateData.status = status;
-    if (typeof isActive !== 'undefined') updateData.isActive = isActive;
+    const { fullName, role, status, password } = req.body;
 
-    const staff = await Staff.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    ).select('-password');
+    if (password && String(password).length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+
+    const staff = await Staff.findById(req.params.id);
 
     if (!staff) {
       return res.status(404).json({ message: 'Staff not found' });
     }
 
+    if (fullName) staff.fullName = fullName;
+    if (role) staff.role = role;
+    if (status) staff.status = status;
+    if (password) staff.password = password;
+    staff.updatedAt = new Date();
+
+    await staff.save();
+
     res.json({
       message: 'Staff updated successfully',
-      staff
+      staff: {
+        id: staff._id,
+        email: staff.email,
+        fullName: staff.fullName,
+        role: staff.role,
+        status: staff.status,
+        isActive: staff.isActive,
+        updatedAt: staff.updatedAt
+      }
     });
   } catch (error) {
     console.error('Error updating staff:', error);

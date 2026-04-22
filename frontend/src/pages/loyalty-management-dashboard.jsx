@@ -1,6 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import authManager from '../auth.js';
-import StaffDashboardLayout from '../components/StaffDashboardLayout.jsx';
+import { FiUsers, FiSettings, FiGift, FiLogOut, FiStar, FiTrendingUp, FiPlus, FiEdit2, FiList, FiMail, FiTrash2, FiLoader } from 'react-icons/fi';
+
+// Add CSS animation for loading spinner
+const style = document.createElement('style');
+style.textContent = `
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
+if (typeof document !== 'undefined' && !document.querySelector('style[data-loyalty-spinner]')) {
+  style.setAttribute('data-loyalty-spinner', 'true');
+  document.head.appendChild(style);
+}
 
 const TIER_OPTIONS = ['Silver', 'Gold', 'Platinum'];
 const OFFER_TIER_OPTIONS = ['All', 'Silver', 'Gold', 'Platinum'];
@@ -11,7 +24,9 @@ const emptyOfferForm = {
   tierType: 'All',
   discountPercentage: '',
   discountAmount: '',
-  validUntil: ''
+  validFrom: '',
+  validUntil: '',
+  couponCode: ''
 };
 
 export default function LoyaltyManagementDashboardPage() {
@@ -19,12 +34,23 @@ export default function LoyaltyManagementDashboardPage() {
   const [tiers, setTiers] = useState([]);
   const [members, setMembers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
-  const [activeTab, setActiveTab] = useState('members');
+  const [activeSection, setActiveSection] = useState('memberAnalysis');
   const [offers, setOffers] = useState([]);
   const [offerForm, setOfferForm] = useState(emptyOfferForm);
   const [isCreatingOffer, setIsCreatingOffer] = useState(false);
+  const [editingOfferId, setEditingOfferId] = useState(null);
   const [busyOfferId, setBusyOfferId] = useState('');
+  const [busyCouponOfferId, setBusyCouponOfferId] = useState('');
   const [error, setError] = useState('');
+  const [editingPointsId, setEditingPointsId] = useState(null);
+  const [editingPointsValue, setEditingPointsValue] = useState('');
+  const [isLogoutHovered, setIsLogoutHovered] = useState(false);
+
+  const navItems = [
+    { key: 'memberAnalysis', icon: FiUsers, label: 'Member Analysis' },
+    { key: 'tierConfiguration', icon: FiSettings, label: 'Tier Configuration' },
+    { key: 'loyaltyOffers', icon: FiGift, label: 'Loyalty Offers' }
+  ];
 
   const loyaltyMembers = useMemo(
     () => members.filter((item) => item.isLoyalty),
@@ -164,32 +190,96 @@ export default function LoyaltyManagementDashboardPage() {
     }
   }
 
+  async function updateLoyaltyPoints(customerId, newPoints) {
+    setError('');
+    try {
+      const response = await authManager.apiRequest(`/api/loyalty/members/points/${customerId}`, {
+        method: 'POST',
+        body: JSON.stringify({ points: Number(newPoints) })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to update points');
+      setEditingPointsId(null);
+      setEditingPointsValue('');
+      await loadMembers();
+    } catch (pointsError) {
+      setError(pointsError.message || 'Failed to update points');
+    }
+  }
+
   async function createOffer(event) {
     event.preventDefault();
+    const todayDate = new Date().toISOString().split('T')[0];
+    if (!offerForm.title || !offerForm.description || !offerForm.validFrom || !offerForm.validUntil || !offerForm.couponCode) {
+      setError('All fields including coupon code are required');
+      return;
+    }
+    if (offerForm.validFrom < todayDate) {
+      setError('Start date cannot be in the past');
+      return;
+    }
+    if (offerForm.validUntil < todayDate) {
+      setError('End date cannot be in the past');
+      return;
+    }
+    if (new Date(offerForm.validFrom) > new Date(offerForm.validUntil)) {
+      setError('Start date must be before end date');
+      return;
+    }
     setIsCreatingOffer(true);
     setError('');
     try {
-      const response = await authManager.apiRequest('/api/loyalty/offers', {
-        method: 'POST',
-        body: JSON.stringify({
-          title: offerForm.title,
-          description: offerForm.description,
-          tierType: offerForm.tierType,
-          discountPercentage: Number(offerForm.discountPercentage || 0),
-          discountAmount: Number(offerForm.discountAmount || 0),
-          validUntil: offerForm.validUntil
-        })
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to create offer');
-      setOfferForm(emptyOfferForm);
-      await loadOffers();
-      setActiveTab('offers');
+      if (editingOfferId) {
+        // Update existing offer
+        const response = await authManager.apiRequest(`/api/loyalty/offers/${editingOfferId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            title: offerForm.title,
+            description: offerForm.description,
+            tierType: offerForm.tierType,
+            discountPercentage: Number(offerForm.discountPercentage || 0),
+            discountAmount: Number(offerForm.discountAmount || 0),
+            validFrom: offerForm.validFrom,
+            validUntil: offerForm.validUntil,
+            couponCode: offerForm.couponCode
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Failed to update offer');
+        setEditingOfferId(null);
+        setOfferForm(emptyOfferForm);
+        await loadOffers();
+      } else {
+        // Create new offer
+        const response = await authManager.apiRequest('/api/loyalty/offers', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: offerForm.title,
+            description: offerForm.description,
+            tierType: offerForm.tierType,
+            discountPercentage: Number(offerForm.discountPercentage || 0),
+            discountAmount: Number(offerForm.discountAmount || 0),
+            validFrom: offerForm.validFrom,
+            validUntil: offerForm.validUntil,
+            couponCode: offerForm.couponCode
+          })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Failed to create offer');
+        setOfferForm(emptyOfferForm);
+        await loadOffers();
+      }
     } catch (createError) {
-      setError(createError.message || 'Failed to create offer');
+      setError(createError.message || (editingOfferId ? 'Failed to update offer' : 'Failed to create offer'));
     } finally {
       setIsCreatingOffer(false);
     }
+  }
+
+  function cancelEdit() {
+    setEditingOfferId(null);
+    setOfferForm(emptyOfferForm);
+    setError('');
   }
 
   async function sendOfferEmail(offerId) {
@@ -227,57 +317,196 @@ export default function LoyaltyManagementDashboardPage() {
     }
   }
 
+  async function sendCoupons(offerId) {
+    const offer = offers.find(o => o._id === offerId);
+    if (!offer || !offer.couponCode) {
+      setError('This offer does not have a coupon code');
+      return;
+    }
+    
+    setBusyCouponOfferId(offerId);
+    setError('');
+    try {
+      const response = await authManager.apiRequest(`/api/loyalty/offers/${offerId}/send-coupons`, {
+        method: 'POST'
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.message || 'Failed to send offer emails');
+      await loadOffers();
+    } catch (sendError) {
+      setError(sendError.message || 'Failed to send offer emails');
+    } finally {
+      setBusyCouponOfferId('');
+    }
+  }
+
   if (!staffUser) return <p style={{ padding: '1rem' }}>Checking loyalty management access...</p>;
 
   const enrollmentPct = members.length > 0 ? Math.round((loyaltyMembers.length / members.length) * 100) : 0;
 
   return (
-    <StaffDashboardLayout
-      title="Loyalty Management Dashboard"
-      staff={staffUser}
-      onLogout={() => authManager.logout()}
-    >
-      <section style={{ display: 'flex', gap: '0.55rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={() => setActiveTab('members')}
-          style={{
-            border: activeTab === 'members' ? '1px solid #6f0022' : '1px solid #d9ced3',
-            background: activeTab === 'members' ? '#6f0022' : '#fff',
-            color: activeTab === 'members' ? '#fff' : '#6f0022',
-            borderRadius: 999,
-            padding: '0.42rem 0.95rem',
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc' }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: '320px',
+        background: '#6f0022',
+        color: '#fff',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'fixed',
+        height: '100vh',
+        left: 0,
+        top: 0,
+        zIndex: 100
+      }}>
+        {/* Sidebar Header */}
+        <div style={{
+          padding: '2rem 1.5rem 1.5rem',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <h1 style={{
+            margin: 0,
+            fontSize: '1.2rem',
+            fontFamily: 'Cormorant Garamond, serif',
             fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          Loyalty Members
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('offers')}
-          style={{
-            border: activeTab === 'offers' ? '1px solid #6f0022' : '1px solid #d9ced3',
-            background: activeTab === 'offers' ? '#6f0022' : '#fff',
-            color: activeTab === 'offers' ? '#fff' : '#6f0022',
-            borderRadius: 999,
-            padding: '0.42rem 0.95rem',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          Loyalty Offers
-        </button>
-      </section>
+            letterSpacing: '0.5px',
+            color: '#e0bf63',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            textTransform: 'uppercase'
+          }}>
+            <FiStar size={28} />
+            Loyalty Management
+          </h1>
+        </div>
 
-      {activeTab === 'members' && (
+        {/* Navigation Items */}
+        <nav style={{
+          flex: 1,
+          padding: '1.5rem 1rem',
+          overflowY: 'auto'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {navItems.map((item) => {
+              const isActive = activeSection === item.key;
+              const IconComponent = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setActiveSection(item.key)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '1rem',
+                    width: '100%',
+                    padding: '1rem 1rem',
+                    background: isActive ? '#e0bf63' : 'transparent',
+                    color: isActive ? '#3d2b00' : '#fff',
+                    border: 'none',
+                    borderRadius: '10px',
+                    fontSize: '1.1rem',
+                    fontFamily: 'Poppins, sans-serif',
+                    fontWeight: isActive ? 600 : 500,
+                    cursor: 'pointer',
+                    transition: 'all 0.3s',
+                    textAlign: 'left'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(224, 191, 99, 0.1)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'transparent';
+                    }
+                  }}
+                >
+                  <IconComponent size={24} style={{ minWidth: '24px' }} />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </nav>
+
+        {/* User Profile Section */}
+        <div style={{
+          padding: '1.5rem',
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem'
+        }}>
+          <div style={{
+            width: '48px',
+            height: '48px',
+            borderRadius: '50%',
+            background: '#e0bf63',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '1.5rem',
+            fontWeight: 700,
+            color: '#3d2b00',
+            flexShrink: 0
+          }}>
+            {staffUser.fullName?.charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              Hello, {staffUser.fullName?.split(' ')[0]}
+            </div>
+          </div>
+          <button
+            onClick={() => authManager.logout()}
+            style={{
+              background: isLogoutHovered ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.2)',
+              color: '#fff',
+              border: 'none',
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.2rem',
+              transition: 'background 0.2s',
+              flexShrink: 0
+            }}
+            title="Logout"
+            onMouseEnter={() => setIsLogoutHovered(true)}
+            onMouseLeave={() => setIsLogoutHovered(false)}
+          >
+            <FiLogOut size={20} />
+          </button>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main style={{
+        flex: 1,
+        marginLeft: '320px',
+        padding: '2rem',
+        overflowY: 'auto'
+      }}>
+        {activeSection === 'memberAnalysis' && (
         <>
-      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.9rem', marginBottom: '1rem' }}>
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.2rem', marginBottom: '2rem' }}>
         {[
-          { label: 'Total Customers', value: members.length, color: '#6f0022' },
-          { label: 'Active Members', value: loyaltyMembers.length, color: '#b33f62' },
-          { label: 'Enrollment Ratio', value: `${enrollmentPct}%`, color: '#1f7a55' },
-          { label: 'Eligible To Add', value: nonMembers.length, color: '#8b5e1f' }
+          { label: 'Total Customers', value: members.length, color: '#6f0022', Icon: FiUsers },
+          { label: 'Active Members', value: loyaltyMembers.length, color: '#b33f62', Icon: FiStar },
+          { label: 'Enrollment Ratio', value: `${enrollmentPct}%`, color: '#1f7a55', Icon: FiTrendingUp },
+          { label: 'Eligible To Add', value: nonMembers.length, color: '#8b5e1f', Icon: FiPlus }
         ].map((item) => (
           <article
             key={item.label}
@@ -285,13 +514,19 @@ export default function LoyaltyManagementDashboardPage() {
               background: '#fff',
               border: '1px solid #eee',
               borderRadius: '14px',
-              padding: '1rem',
-              boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)'
+              padding: '1.5rem',
+              boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)',
+              transition: 'all 0.3s'
             }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
           >
-            <div style={{ width: '44px', height: '4px', borderRadius: '999px', background: item.color, marginBottom: '0.7rem' }} />
-            <p style={{ margin: 0, color: '#7a7279', fontSize: '0.84rem', textTransform: 'uppercase', letterSpacing: '0.7px' }}>{item.label}</p>
-            <h3 style={{ margin: '0.3rem 0 0', color: item.color, fontSize: '1.95rem', lineHeight: 1.1 }}>{item.value}</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem' }}>
+              <item.Icon style={{ fontSize: '2rem', color: item.color }} />
+              <div style={{ width: '6px', height: '36px', borderRadius: '3px', background: item.color }} />
+            </div>
+            <p style={{ margin: 0, color: '#7a7279', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.7px', fontWeight: 600 }}>{item.label}</p>
+            <h3 style={{ margin: '0.6rem 0 0', color: item.color, fontSize: '2.2rem', lineHeight: 1, fontWeight: 700 }}>{item.value}</h3>
           </article>
         ))}
       </section>
@@ -344,34 +579,6 @@ export default function LoyaltyManagementDashboardPage() {
             </div>
           </div>
         </article>
-
-        <article style={{ background: '#fff', border: '1px solid #ebe6e8', borderRadius: '14px', padding: '1rem', boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)' }}>
-          <h3 style={{ margin: '0 0 0.2rem', color: '#6f0022', fontSize: '1.2rem' }}>Tier Configuration</h3>
-          <p style={{ margin: '0 0 0.75rem', color: '#777', fontSize: '0.9rem' }}>Edit spending thresholds, rewards multiplier, and customer-facing benefit copy.</p>
-
-          <div style={{ display: 'grid', gap: '0.7rem', maxHeight: '560px', overflowY: 'auto', paddingRight: '0.2rem' }}>
-            {tiers.map((tier) => (
-              <article key={tier._id} style={{ border: '1px solid #efe8eb', borderRadius: 12, padding: '0.9rem', background: '#fffdfd' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.55rem', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  <h4 style={{ margin: 0, color: '#44242f', fontSize: '1rem' }}>{tier.tierName}</h4>
-                  <span style={{ border: '1px solid #e6d7de', borderRadius: 999, padding: '0.15rem 0.55rem', fontSize: '0.74rem', color: '#6f0022', background: '#faf3f6' }}>
-                    Editable
-                  </span>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(145px, 1fr))', gap: '0.45rem' }}>
-                  <input type="number" value={tier.minSpent} onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, minSpent: e.target.value } : item)))} style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.48rem 0.6rem' }} />
-                  <input type="number" value={tier.maxSpent} onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, maxSpent: e.target.value } : item)))} style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.48rem 0.6rem' }} />
-                  <input type="number" step="0.1" value={tier.pointMultiplier} onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, pointMultiplier: e.target.value } : item)))} style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.48rem 0.6rem' }} />
-                </div>
-
-                <textarea rows={2} value={Array.isArray(tier.benefits) ? tier.benefits.join('\n') : tier.benefits || ''} onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, benefits: e.target.value } : item)))} style={{ width: '100%', border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.48rem 0.6rem', marginTop: '0.45rem' }} />
-                <textarea rows={2} value={tier.description || ''} onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, description: e.target.value } : item)))} style={{ width: '100%', border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.48rem 0.6rem', marginTop: '0.45rem' }} />
-                <button type="button" onClick={() => updateTier(tier)} style={{ marginTop: '0.48rem', border: 'none', background: '#1f7a55', color: '#fff', borderRadius: 9, padding: '0.46rem 0.75rem', fontWeight: 600, cursor: 'pointer' }}>Save Tier</button>
-              </article>
-            ))}
-          </div>
-        </article>
       </section>
 
       <section style={{ background: '#fff', border: '1px solid #ebe6e8', borderRadius: 14, padding: '1rem', boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)' }}>
@@ -398,7 +605,54 @@ export default function LoyaltyManagementDashboardPage() {
                       {member.loyaltyTier || 'Silver'}
                     </span>
                   </td>
-                  <td style={{ padding: '0.72rem 0.55rem', fontWeight: 700, color: '#402f36' }}>{member.loyaltyPoints || 0}</td>
+                  <td style={{ padding: '0.72rem 0.55rem' }}>
+                    {editingPointsId === member._id ? (
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <input
+                          type="number"
+                          min="0"
+                          value={editingPointsValue}
+                          onChange={(e) => {
+                            const numVal = parseInt(e.target.value) || 0;
+                            setEditingPointsValue(numVal < 0 ? '0' : e.target.value);
+                          }}
+                          style={{ border: '1px solid #d7d0d5', borderRadius: 6, padding: '0.35rem 0.5rem', fontSize: '0.85rem', width: '70px' }}
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          onClick={() => updateLoyaltyPoints(member._id, editingPointsValue)}
+                          style={{ border: 'none', background: '#1f7a55', color: '#fff', borderRadius: 6, padding: '0.3rem 0.5rem', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingPointsId(null);
+                            setEditingPointsValue('');
+                          }}
+                          style={{ border: '1px solid #d7d0d5', background: '#fff', color: '#666', borderRadius: 6, padding: '0.3rem 0.5rem', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, color: '#402f36' }}>{member.loyaltyPoints || 0}</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingPointsId(member._id);
+                            setEditingPointsValue(String(member.loyaltyPoints || 0));
+                          }}
+                          style={{ border: '1px solid #d0c4ca', background: '#fff', color: '#6f0022', borderRadius: 6, padding: '0.2rem 0.5rem', fontSize: '0.7rem', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    )}
+                  </td>
                   <td style={{ padding: '0.72rem 0.55rem' }}>
                     <div style={{ display: 'flex', gap: '0.36rem', flexWrap: 'wrap' }}>
                       {TIER_OPTIONS.map((tierName) => (
@@ -423,119 +677,563 @@ export default function LoyaltyManagementDashboardPage() {
         </div>
       </section>
         </>
-      )}
+        )}
 
-      {activeTab === 'offers' && (
-        <>
-          <section style={{ background: '#fff', border: '1px solid #ebe6e8', borderRadius: 14, padding: '1rem', boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)', marginBottom: '1rem' }}>
-            <h3 style={{ margin: '0 0 0.2rem', color: '#6f0022', fontSize: '1.2rem' }}>Create Loyalty Offer</h3>
-            <p style={{ margin: '0 0 0.8rem', color: '#777', fontSize: '0.9rem' }}>Create targeted offers and send to a specific loyalty tier or all tiers.</p>
-            <form onSubmit={createOffer} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.6rem' }}>
-              <input
-                required
-                value={offerForm.title}
-                onChange={(e) => setOfferForm((prev) => ({ ...prev, title: e.target.value }))}
-                placeholder="Offer title"
-                style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.52rem 0.65rem' }}
-              />
-              <select
-                value={offerForm.tierType}
-                onChange={(e) => setOfferForm((prev) => ({ ...prev, tierType: e.target.value }))}
-                style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.52rem 0.65rem' }}
-              >
-                {OFFER_TIER_OPTIONS.map((tierName) => (
-                  <option key={tierName} value={tierName}>{tierName}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={offerForm.discountPercentage}
-                onChange={(e) => setOfferForm((prev) => ({ ...prev, discountPercentage: e.target.value }))}
-                placeholder="Discount %"
-                style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.52rem 0.65rem' }}
-              />
-              <input
-                type="number"
-                min={0}
-                value={offerForm.discountAmount}
-                onChange={(e) => setOfferForm((prev) => ({ ...prev, discountAmount: e.target.value }))}
-                placeholder="Discount amount (LKR)"
-                style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.52rem 0.65rem' }}
-              />
-              <input
-                required
-                type="date"
-                value={offerForm.validUntil}
-                onChange={(e) => setOfferForm((prev) => ({ ...prev, validUntil: e.target.value }))}
-                style={{ border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.52rem 0.65rem' }}
-              />
-              <textarea
-                required
-                rows={3}
-                value={offerForm.description}
-                onChange={(e) => setOfferForm((prev) => ({ ...prev, description: e.target.value }))}
-                placeholder="Offer description"
-                style={{ gridColumn: '1 / -1', border: '1px solid #d7d0d5', borderRadius: 9, padding: '0.52rem 0.65rem' }}
-              />
-              <button
-                type="submit"
-                disabled={isCreatingOffer}
-                style={{ border: 'none', background: '#6f0022', color: '#fff', borderRadius: 9, padding: '0.55rem 0.8rem', fontWeight: 600, cursor: isCreatingOffer ? 'not-allowed' : 'pointer', opacity: isCreatingOffer ? 0.7 : 1 }}
-              >
-                {isCreatingOffer ? 'Creating...' : 'Create Offer'}
-              </button>
-            </form>
-          </section>
+        {activeSection === 'tierConfiguration' && (
+          <section>
+            <div style={{ marginBottom: '2rem' }}>
+              <h2 style={{ margin: '0 0 0.5rem', color: '#6f0022', fontSize: '1.5rem', fontFamily: "'Cormorant Garamond', serif" }}>Tier Configuration</h2>
+              <p style={{ margin: 0, color: '#777', fontSize: '0.95rem' }}>Edit spending thresholds, rewards multiplier, and customer-facing benefit copy.</p>
+            </div>
 
-          <section style={{ background: '#fff', border: '1px solid #ebe6e8', borderRadius: 14, padding: '1rem', boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)' }}>
-            <h3 style={{ margin: '0 0 0.7rem', color: '#6f0022', fontSize: '1.2rem' }}>Offer Campaigns</h3>
-            <div style={{ display: 'grid', gap: '0.65rem' }}>
-              {offers.map((offer) => (
-                <article key={offer._id} style={{ border: '1px solid #efe8eb', borderRadius: 12, padding: '0.85rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <h4 style={{ margin: 0, color: '#43242f' }}>{offer.title}</h4>
-                    <span style={{ border: '1px solid #e6d7de', borderRadius: 999, padding: '0.12rem 0.5rem', fontSize: '0.75rem', color: '#6f0022', background: '#faf3f6' }}>
-                      {offer.tierType}
-                    </span>
-                  </div>
-                  <p style={{ margin: '0.35rem 0 0.4rem', color: '#666' }}>{offer.description}</p>
-                  <p style={{ margin: 0, color: '#7d757b', fontSize: '0.86rem' }}>
-                    Discount: {offer.discountPercentage || 0}% {offer.discountAmount ? `or LKR ${Number(offer.discountAmount).toLocaleString()}` : ''} | Valid Until: {offer.validUntil ? new Date(offer.validUntil).toLocaleDateString() : '-'}
-                  </p>
-                  <p style={{ margin: '0.25rem 0 0', color: '#7d757b', fontSize: '0.82rem' }}>
-                    Email Sent: {offer.emailSent ? 'Yes' : 'No'} {offer.sentAt ? `| Last Sent: ${new Date(offer.sentAt).toLocaleString()}` : ''} | Recipients: {offer.recipientsCount || 0}
-                  </p>
-                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.6rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => sendOfferEmail(offer._id)}
-                      disabled={busyOfferId === offer._id}
-                      style={{ border: 'none', background: '#1f7a55', color: '#fff', borderRadius: 8, padding: '0.4rem 0.65rem', fontSize: '0.8rem', fontWeight: 600, cursor: busyOfferId === offer._id ? 'not-allowed' : 'pointer', opacity: busyOfferId === offer._id ? 0.7 : 1 }}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '1.5rem' }}>
+              {tiers.map((tier) => {
+                const tierColors = {
+                  'Silver': { accent: '#b0b0b0', light: '#f8f8f8', border: '#e0e0e0' },
+                  'Gold': { accent: '#e0bf63', light: '#fef9f0', border: '#ede3d0' },
+                  'Platinum': { accent: '#c0a0d0', light: '#f9f6fc', border: '#e8dff5' }
+                };
+                const colors = tierColors[tier.tierName] || tierColors['Silver'];
+                
+                return (
+                  <article key={tier._id} style={{ 
+                    background: colors.light, 
+                    border: `2px solid ${colors.border}`, 
+                    borderRadius: 16, 
+                    padding: '1.5rem',
+                    boxShadow: '0 4px 12px rgba(51, 25, 35, 0.08)',
+                    transition: 'all 0.3s',
+                    overflow: 'hidden'
+                  }}>
+                    {/* Header */}
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '1rem', 
+                      marginBottom: '1.2rem',
+                      paddingBottom: '1rem',
+                      borderBottom: `1px solid ${colors.border}`
+                    }}>
+                      <div style={{
+                        width: '48px',
+                        height: '48px',
+                        borderRadius: '50%',
+                        background: colors.accent,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: tier.tierName === 'Gold' ? '#3d2b00' : '#fff',
+                        fontSize: '1.8rem',
+                        fontWeight: 700,
+                        flexShrink: 0
+                      }}>
+                        {tier.tierName.charAt(0)}
+                      </div>
+                      <div>
+                        <h3 style={{ margin: '0 0 0.2rem', color: '#3d2f35', fontSize: '1.2rem', fontWeight: 700 }}>
+                          {tier.tierName}
+                        </h3>
+                        <p style={{ margin: 0, color: '#777', fontSize: '0.8rem' }}>Editable</p>
+                      </div>
+                    </div>
+
+                    {/* Spending Thresholds */}
+                    <div style={{ marginBottom: '1.2rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Spending Thresholds</label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#555', marginBottom: '0.4rem', fontWeight: 500 }}>Min. Spent (LKR)</label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            value={tier.minSpent} 
+                            onChange={(e) => {
+                              const value = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                              setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, minSpent: value } : item)));
+                            }} 
+                            style={{ 
+                              border: `1px solid ${colors.border}`, 
+                              borderRadius: 8, 
+                              padding: '0.6rem 0.8rem', 
+                              width: '100%',
+                              background: '#fff',
+                              fontSize: '0.9rem',
+                              fontWeight: 500
+                            }} 
+                            placeholder="0" 
+                          />
+                        </div>
+                        <div>
+                          <label style={{ display: 'block', fontSize: '0.75rem', color: '#555', marginBottom: '0.4rem', fontWeight: 500 }}>Max. Spent (LKR)</label>
+                          <input 
+                            type="number" 
+                            min="0" 
+                            value={tier.maxSpent} 
+                            onChange={(e) => {
+                              const value = e.target.value === '' ? '' : Math.max(0, Number(e.target.value));
+                              setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, maxSpent: value } : item)));
+                            }} 
+                            style={{ 
+                              border: `1px solid ${colors.border}`, 
+                              borderRadius: 8, 
+                              padding: '0.6rem 0.8rem', 
+                              width: '100%',
+                              background: '#fff',
+                              fontSize: '0.9rem',
+                              fontWeight: 500
+                            }} 
+                            placeholder="Unlimited" 
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Point Multiplier */}
+                    <div style={{ marginBottom: '1.2rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Point Multiplier</label>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                        <input 
+                          type="number" 
+                          step="0.1" 
+                          min="0" 
+                          max="5" 
+                          value={tier.pointMultiplier} 
+                          onChange={(e) => {
+                            const value = e.target.value === '' ? '' : Math.max(0, Math.min(5, Number(e.target.value)));
+                            setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, pointMultiplier: value } : item)));
+                          }} 
+                          style={{ 
+                            border: `1px solid ${colors.border}`, 
+                            borderRadius: 8, 
+                            padding: '0.6rem 0.8rem', 
+                            width: '120px',
+                            background: '#fff',
+                            fontSize: '0.9rem',
+                            fontWeight: 600
+                          }} 
+                          placeholder="1.0" 
+                        />
+                        <span style={{ color: '#666', fontSize: '0.9rem' }}>× base points</span>
+                      </div>
+                    </div>
+
+                    {/* Benefits */}
+                    <div style={{ marginBottom: '1.2rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Benefits</label>
+                      <textarea 
+                        rows={3} 
+                        value={Array.isArray(tier.benefits) ? tier.benefits.join('\n') : tier.benefits || ''} 
+                        onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, benefits: e.target.value } : item)))} 
+                        style={{ 
+                          width: '100%', 
+                          border: `1px solid ${colors.border}`, 
+                          borderRadius: 8, 
+                          padding: '0.8rem',
+                          background: '#fff',
+                          fontSize: '0.9rem',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          minHeight: '80px'
+                        }} 
+                        placeholder="One benefit per line&#10;e.g., 1 point per Rs. 100 spent&#10;Priority customer support" 
+                      />
+                      <p style={{ margin: '0.4rem 0 0', fontSize: '0.75rem', color: '#999' }}>Tip: List each benefit on a new line</p>
+                    </div>
+
+                    {/* Description */}
+                    <div style={{ marginBottom: '1.2rem' }}>
+                      <label style={{ display: 'block', fontSize: '0.7rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Description</label>
+                      <textarea 
+                        rows={2} 
+                        value={tier.description || ''} 
+                        onChange={(e) => setTiers((prev) => prev.map((item) => (item._id === tier._id ? { ...item, description: e.target.value } : item)))} 
+                        style={{ 
+                          width: '100%', 
+                          border: `1px solid ${colors.border}`, 
+                          borderRadius: 8, 
+                          padding: '0.8rem',
+                          background: '#fff',
+                          fontSize: '0.9rem',
+                          fontFamily: 'inherit',
+                          resize: 'vertical',
+                          minHeight: '60px'
+                        }} 
+                        placeholder="Brief description for customers..." 
+                      />
+                    </div>
+
+                    {/* Save Button */}
+                    <button 
+                      type="button" 
+                      onClick={() => updateTier(tier)} 
+                      style={{ 
+                        border: 'none', 
+                        background: colors.accent, 
+                        color: tier.tierName === 'Gold' ? '#3d2b00' : '#fff',
+                        borderRadius: 8, 
+                        padding: '0.7rem 1.5rem', 
+                        fontWeight: 600, 
+                        fontSize: '0.95rem',
+                        cursor: 'pointer',
+                        width: '100%',
+                        transition: 'opacity 0.2s',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}
+                      onMouseEnter={(e) => e.target.style.opacity = '0.9'}
+                      onMouseLeave={(e) => e.target.style.opacity = '1'}
                     >
-                      {busyOfferId === offer._id ? 'Sending...' : 'Send Emails'}
+                      ✓ Save {tier.tierName} Tier
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => deleteOffer(offer._id)}
-                      disabled={busyOfferId === offer._id}
-                      style={{ border: '1px solid #e6bfbf', background: '#fff', color: '#9b2e2e', borderRadius: 8, padding: '0.38rem 0.65rem', fontSize: '0.8rem', fontWeight: 600, cursor: busyOfferId === offer._id ? 'not-allowed' : 'pointer', opacity: busyOfferId === offer._id ? 0.7 : 1 }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </article>
-              ))}
-              {offers.length === 0 && (
-                <article style={{ border: '1px solid #efe8eb', borderRadius: 12, padding: '0.85rem', color: '#666' }}>
-                  No offers created yet.
-                </article>
-              )}
+                  </article>
+                );
+              })}
             </div>
           </section>
-        </>
-      )}
-    </StaffDashboardLayout>
+        )}
+
+        {activeSection === 'loyaltyOffers' && (
+          <>
+          <section style={{ marginBottom: '2rem' }}>
+            <div style={{ marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: '0 0 0.5rem', color: '#6f0022', fontSize: '1.5rem', fontFamily: "'Cormorant Garamond', serif", display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {editingOfferId ? <><FiEdit2 /> Edit Loyalty Offer</> : <><FiGift /> Create Loyalty Offer</>}
+              </h2>
+              <p style={{ margin: 0, color: '#777', fontSize: '0.95rem' }}>
+                {editingOfferId ? 'Update this offer and resend to customers.' : 'Create targeted offers and send to a specific loyalty tier or all tiers.'}
+              </p>
+            </div>
+
+            <div style={{ background: '#fff', border: '1px solid #ebe6e8', borderRadius: 14, padding: '1.5rem', boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)' }}>
+            <form onSubmit={createOffer} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+              {/* Offer Title */}
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Offer Title *</label>
+                <input
+                  required
+                  value={offerForm.title}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, title: e.target.value }))}
+                  placeholder="E.g., Summer Sale, Gold Tier Exclusive"
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              {/* Offer Description */}
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Description *</label>
+                <textarea
+                  required
+                  rows={3}
+                  value={offerForm.description}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe the offer details and benefits to customers"
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit', resize: 'vertical' }}
+                />
+              </div>
+
+              {/* Apply To Tier */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Apply To Tier</label>
+                <select
+                  value={offerForm.tierType}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, tierType: e.target.value }))}
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                >
+                  {OFFER_TIER_OPTIONS.map((tierName) => (
+                    <option key={tierName} value={tierName}>{tierName}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Discount % */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Discount %</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={offerForm.discountPercentage}
+                  onChange={(e) => {
+                    const value = e.target.value === '' ? '' : Math.max(0, Math.min(100, Number(e.target.value)));
+                    setOfferForm((prev) => ({ ...prev, discountPercentage: value }));
+                  }}
+                  placeholder="0 - 100"
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              {/* OR Fixed Amount */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>OR Fixed Amount (LKR)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={offerForm.discountAmount}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, discountAmount: e.target.value }))}
+                  placeholder="0"
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              {/* Valid From */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Valid From *</label>
+                <input
+                  required
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]}
+                  value={offerForm.validFrom}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, validFrom: e.target.value }))}
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              {/* Valid Until */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Valid Until *</label>
+                <input
+                  required
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]}
+                  value={offerForm.validUntil}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, validUntil: e.target.value }))}
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              {/* Coupon Code */}
+              <div style={{ gridColumn: '1 / -1' }}>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#6f0022', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Coupon Code *</label>
+                <input
+                  required
+                  value={offerForm.couponCode}
+                  onChange={(e) => setOfferForm((prev) => ({ ...prev, couponCode: e.target.value.toUpperCase() }))}
+                  placeholder="E.g., GOLD50, SUMMER25"
+                  maxLength="20"
+                  style={{ border: '1px solid #d7d0d5', borderRadius: 8, padding: '0.7rem 0.8rem', width: '100%', fontSize: '0.95rem', fontFamily: 'inherit', textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                />
+              </div>
+
+              {/* Form Actions */}
+              <div style={{ display: 'flex', gap: '0.8rem', gridColumn: '1 / -1' }}>
+                <button
+                  type="submit"
+                  disabled={isCreatingOffer}
+                  style={{ 
+                    border: 'none', 
+                    background: '#6f0022', 
+                    color: '#fff', 
+                    borderRadius: 8, 
+                    padding: '0.8rem 1.5rem', 
+                    fontWeight: 600, 
+                    cursor: isCreatingOffer ? 'not-allowed' : 'pointer', 
+                    opacity: isCreatingOffer ? 0.7 : 1,
+                    fontSize: '0.95rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    flex: 1,
+                    transition: 'all 0.2s'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isCreatingOffer) e.target.style.background = '#5a001a';
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isCreatingOffer) e.target.style.background = '#6f0022';
+                  }}
+                >
+                  {isCreatingOffer ? (editingOfferId ? '⏳ Saving...' : '⏳ Creating...') : (editingOfferId ? '✓ Save Changes' : '+ Create Offer')}
+                </button>
+                {editingOfferId && (
+                  <button
+                    type="button"
+                    onClick={cancelEdit}
+                    style={{ 
+                      border: '1px solid #d7d0d5', 
+                      background: '#fff', 
+                      color: '#666', 
+                      borderRadius: 8, 
+                      padding: '0.8rem 1.5rem', 
+                      fontWeight: 600, 
+                      cursor: 'pointer',
+                      fontSize: '0.95rem',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.target.style.background = '#f9f9f9'}
+                    onMouseLeave={(e) => e.target.style.background = '#fff'}
+                  >
+                    ✕ Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+            </div>
+          </section>
+
+          {/* Offer Campaigns Section */}
+          <section style={{ marginTop: '2rem' }}>
+            <h2 style={{ margin: '0 0 1rem', color: '#6f0022', fontSize: '1.5rem', fontFamily: "'Cormorant Garamond', serif", display: 'flex', alignItems: 'center', gap: '0.5rem' }}><FiList /> Offer Campaigns</h2>
+            
+            {offers.length === 0 ? (
+              <article style={{ background: '#fff', border: '1px solid #ebe6e8', borderRadius: 14, padding: '2rem', boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)', textAlign: 'center' }}>
+                <div style={{ fontSize: '3rem', marginBottom: '1rem', color: '#D4AF37' }}><FiGift style={{ width: '3rem', height: '3rem' }} /></div>
+                <p style={{ margin: 0, color: '#666', fontSize: '1rem' }}>No offers created yet. Create your first offer above!</p>
+              </article>
+            ) : (
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                {offers.map((offer) => (
+                  <article key={offer._id} style={{ 
+                    background: '#fff', 
+                    border: '1px solid #ebe6e8', 
+                    borderRadius: 14, 
+                    padding: '1.5rem',
+                    boxShadow: '0 4px 16px rgba(51, 25, 35, 0.08)',
+                    transition: 'all 0.2s'
+                  }} onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 8px 24px rgba(51, 25, 35, 0.12)'} onMouseLeave={(e) => e.currentTarget.style.boxShadow = '0 4px 16px rgba(51, 25, 35, 0.08)'}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #eee' }}>
+                      <div>
+                        <h3 style={{ margin: '0 0 0.3rem', color: '#3d2f35', fontSize: '1.1rem', fontWeight: 700 }}>{offer.title}</h3>
+                        <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>{offer.description}</p>
+                      </div>
+                      <span style={{ 
+                        border: '1px solid #e6d7de', 
+                        borderRadius: 999, 
+                        padding: '0.4rem 0.9rem', 
+                        fontSize: '0.8rem', 
+                        color: '#6f0022', 
+                        background: '#faf3f6',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {offer.tierType}
+                      </span>
+                    </div>
+
+                    {/* Details Grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                      <div>
+                        <p style={{ margin: '0 0 0.3rem', fontSize: '0.75rem', color: '#777', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discount</p>
+                        <p style={{ margin: 0, fontSize: '1.1rem', color: '#6f0022', fontWeight: 700 }}>
+                          {offer.discountPercentage || 0}% {offer.discountAmount ? `or Rs. ${Number(offer.discountAmount).toLocaleString()}` : ''}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: '0 0 0.3rem', fontSize: '0.75rem', color: '#777', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Valid Period</p>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#333' }}>
+                          {offer.validFrom ? new Date(offer.validFrom).toLocaleDateString() : '-'} to {offer.validUntil ? new Date(offer.validUntil).toLocaleDateString() : '-'}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: '0 0 0.3rem', fontSize: '0.75rem', color: '#777', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Coupon Code</p>
+                        <p style={{ margin: 0, fontSize: '1rem', color: '#d4af37', fontWeight: 700, fontFamily: 'monospace', letterSpacing: '0.1em' }}>
+                          {offer.couponCode}
+                        </p>
+                      </div>
+                      <div>
+                        <p style={{ margin: '0 0 0.3rem', fontSize: '0.75rem', color: '#777', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Email Status</p>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: offer.emailSent ? '#1f7a55' : '#999' }}>
+                          {offer.emailSent ? `✓ Sent (${offer.recipientsCount || 0} recipients)` : 'Not sent'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => sendCoupons(offer._id)}
+                        disabled={busyCouponOfferId === offer._id}
+                        style={{ 
+                          border: 'none', 
+                          background: '#1f7a55', 
+                          color: '#fff', 
+                          borderRadius: 8, 
+                          padding: '0.6rem 1rem', 
+                          fontSize: '0.85rem', 
+                          fontWeight: 600, 
+                          cursor: busyCouponOfferId === offer._id ? 'not-allowed' : 'pointer', 
+                          opacity: busyCouponOfferId === offer._id ? 0.7 : 1,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (busyCouponOfferId !== offer._id) e.target.style.background = '#166a48';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (busyCouponOfferId !== offer._id) e.target.style.background = '#1f7a55';
+                        }}
+                      >
+                        {busyCouponOfferId === offer._id ? <><FiLoader style={{ animation: 'spin 1s linear infinite' }} /> Sending...</> : <><FiMail /> Send Email</>}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingOfferId(offer._id);
+                          setOfferForm({
+                            title: offer.title,
+                            description: offer.description,
+                            tierType: offer.tierType,
+                            discountPercentage: offer.discountPercentage || '',
+                            discountAmount: offer.discountAmount || '',
+                            validFrom: offer.validFrom?.split('T')[0] || '',
+                            validUntil: offer.validUntil?.split('T')[0] || '',
+                            couponCode: offer.couponCode
+                          });
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        style={{ 
+                          border: '1px solid #8b5e1f', 
+                          background: 'transparent', 
+                          color: '#8b5e1f', 
+                          borderRadius: 8, 
+                          padding: '0.6rem 1rem', 
+                          fontSize: '0.85rem', 
+                          fontWeight: 600, 
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background = '#f5f0e8';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = 'transparent';
+                        }}
+                      >
+                        ✏️ Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => deleteOffer(offer._id)}
+                        disabled={busyOfferId === offer._id}
+                        style={{ 
+                          border: '1px solid #e6bfbf', 
+                          background: '#fff', 
+                          color: '#9b2e2e', 
+                          borderRadius: 8, 
+                          padding: '0.6rem 1rem', 
+                          fontSize: '0.85rem', 
+                          fontWeight: 600, 
+                          cursor: busyOfferId === offer._id ? 'not-allowed' : 'pointer', 
+                          opacity: busyOfferId === offer._id ? 0.7 : 1,
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (busyOfferId !== offer._id) e.target.style.background = '#ffe6e6';
+                        }}
+                        onMouseLeave={(e) => {
+                          if (busyOfferId !== offer._id) e.target.style.background = '#fff';
+                        }}
+                      >
+                        {busyOfferId === offer._id ? <><FiLoader style={{ animation: 'spin 1s linear infinite' }} /> Deleting...</> : <><FiTrash2 /> Delete</>}
+                      </button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+          </>
+        )}
+      </main>
+    </div>
   );
 }

@@ -54,6 +54,7 @@ const sendInvoiceEmail = async (order) => {
         </table>
         <div style="background: white; padding: 1rem; margin-top: 1rem; border-radius: 8px; text-align: right;">
           <p>Subtotal: Rs. ${order.subtotal.toLocaleString()}</p>
+          ${order.couponCode ? `<p style="color: #1f7a55;"><strong>Discount (${order.couponCode}):</strong> -Rs. ${order.couponDiscount.toLocaleString()}</p>` : ''}
           <p>Tax: Rs. ${order.tax.toLocaleString()}</p>
           <p style="font-size: 1.3rem; font-weight: 700; color: #6f0022;">Total: Rs. ${order.total.toLocaleString()}</p>
         </div>
@@ -82,7 +83,7 @@ const isStaffAuthenticated = (req, res, next) => {
 // POST /api/orders - Create new order
 router.post('/', isCustomerAuthenticated, async (req, res) => {
   try {
-    const { items, phoneNumber, paymentReceipt, orderNotes, subtotal, tax, total } = req.body;
+    const { items, phoneNumber, paymentReceipt, orderNotes, subtotal, tax, total, couponCode, couponDiscount } = req.body;
 
     // Validate required fields
     if (!items || items.length === 0) {
@@ -130,6 +131,8 @@ router.post('/', isCustomerAuthenticated, async (req, res) => {
       paymentMethod: 'Bank Transfer',
       paymentReceipt: paymentReceipt || null,
       orderNotes,
+      couponCode: couponCode || null,
+      couponDiscount: couponDiscount || 0,
       status: 'Pending'
     });
 

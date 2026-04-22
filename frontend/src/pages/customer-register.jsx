@@ -8,7 +8,7 @@ function getSafeRedirect() {
 }
 
 export default function CustomerRegisterPage() {
-  const [form, setForm] = useState({ fullName: '', email: '', phone: '', password: '', confirmPassword: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '' });
   const [loading, setLoading] = useState(false);
   const [alertState, setAlertState] = useState({ message: '', type: 'error' });
   const safeRedirect = useMemo(() => getSafeRedirect(), []);
@@ -25,16 +25,19 @@ export default function CustomerRegisterPage() {
   async function handleSubmit(event) {
     event.preventDefault();
 
-    const fullName = form.fullName.trim();
+    const firstName = form.firstName.trim();
+    const lastName = form.lastName.trim();
+    const fullName = `${firstName} ${lastName}`.trim();
     const email = form.email.trim();
     const phone = form.phone.trim();
+    const normalizedPhone = phone.replace(/\D/g, '');
 
-    if (!fullName || !email || !form.password || !form.confirmPassword) {
+    if (!firstName || !lastName || !email || !phone || !form.password || !form.confirmPassword) {
       showAlert('Please fill in all required fields');
       return;
     }
-    if (fullName.length < 3) {
-      showAlert('Name must be at least 3 characters long');
+    if (firstName.length < 2 || lastName.length < 2) {
+      showAlert('First name and last name must be at least 2 characters long');
       return;
     }
 
@@ -44,12 +47,16 @@ export default function CustomerRegisterPage() {
       return;
     }
 
-    if (phone && !/^[\d\s+\-()]+$/.test(phone)) {
-      showAlert('Please enter a valid phone number');
+    if (!/^\d{10}$/.test(normalizedPhone)) {
+      showAlert('Phone number must be exactly 10 digits');
       return;
     }
-    if (form.password.length < 6) {
-      showAlert('Password must be at least 6 characters long');
+    if (form.password.length < 8) {
+      showAlert('Password must be at least 8 characters long');
+      return;
+    }
+    if (!/\d/.test(form.password)) {
+      showAlert('Password must include at least 1 number');
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -62,7 +69,7 @@ export default function CustomerRegisterPage() {
       const response = await fetch('/api/customer/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fullName, email, phone, password: form.password })
+        body: JSON.stringify({ fullName, email, phone: normalizedPhone, password: form.password })
       });
 
       const data = await response.json();
@@ -73,7 +80,7 @@ export default function CustomerRegisterPage() {
       }
 
       showAlert('Registration successful! Redirecting to login...', 'success');
-      setForm({ fullName: '', email: '', phone: '', password: '', confirmPassword: '' });
+      setForm({ firstName: '', lastName: '', email: '', phone: '', password: '', confirmPassword: '' });
       window.setTimeout(() => {
         const loginPath = safeRedirect
           ? `/customer-login?redirect=${encodeURIComponent(safeRedirect)}`
@@ -103,15 +110,27 @@ export default function CustomerRegisterPage() {
 
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label htmlFor="fullName">Full Name</label>
+          <label htmlFor="firstName">First Name</label>
           <input
             type="text"
-            id="fullName"
-            name="fullName"
-            placeholder="Enter your full name"
+            id="firstName"
+            name="firstName"
+            placeholder="Enter your first name"
             required
-            value={form.fullName}
-            onChange={(event) => setForm((prev) => ({ ...prev, fullName: event.target.value }))}
+            value={form.firstName}
+            onChange={(event) => setForm((prev) => ({ ...prev, firstName: event.target.value }))}
+          />
+        </div>
+        <div className="form-group">
+          <label htmlFor="lastName">Last Name</label>
+          <input
+            type="text"
+            id="lastName"
+            name="lastName"
+            placeholder="Enter your last name"
+            required
+            value={form.lastName}
+            onChange={(event) => setForm((prev) => ({ ...prev, lastName: event.target.value }))}
           />
         </div>
         <div className="form-group">
@@ -127,14 +146,21 @@ export default function CustomerRegisterPage() {
           />
         </div>
         <div className="form-group">
-          <label htmlFor="phone">Phone Number (Optional)</label>
+          <label htmlFor="phone">Phone Number</label>
           <input
             type="tel"
             id="phone"
             name="phone"
-            placeholder="Enter your phone number"
+            placeholder="Enter 10-digit phone number"
+            required
+            pattern="[0-9]{10}"
+            inputMode="numeric"
+            maxLength={10}
             value={form.phone}
-            onChange={(event) => setForm((prev) => ({ ...prev, phone: event.target.value }))}
+            onChange={(event) => {
+              const digitsOnly = event.target.value.replace(/\D/g, '').slice(0, 10);
+              setForm((prev) => ({ ...prev, phone: digitsOnly }));
+            }}
           />
         </div>
         <div className="form-group">
@@ -145,7 +171,9 @@ export default function CustomerRegisterPage() {
             name="password"
             placeholder="Create a password"
             required
-            minLength={6}
+            minLength={8}
+            pattern="(?=.*\d).{8,}"
+            title="Password must be at least 8 characters and include at least 1 number"
             value={form.password}
             onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
           />
@@ -158,7 +186,7 @@ export default function CustomerRegisterPage() {
             name="confirmPassword"
             placeholder="Re-enter password"
             required
-            minLength={6}
+            minLength={8}
             value={form.confirmPassword}
             onChange={(event) => setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
           />

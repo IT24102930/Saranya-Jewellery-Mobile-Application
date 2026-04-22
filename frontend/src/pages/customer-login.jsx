@@ -168,6 +168,12 @@ export default function CustomerLoginPage() {
             </button>
           </form>
 
+          <div style={{ textAlign: 'right', marginTop: '0.8rem' }}>
+            <a href="/customer-reset-password" style={{ color: 'var(--brand-burgundy)', fontSize: '0.92rem', textDecoration: 'underline' }}>
+              Forgot Password?
+            </a>
+          </div>
+
           <div className="footer-links">
             <a href={registerHref}>Create Account</a>
             <span className="divider">|</span>

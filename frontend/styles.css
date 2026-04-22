@@ -430,6 +430,7 @@ a:hover {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
     background: var(--brand-burgundy-dark);
+    color: var(--bg-white);
 }
 
 .btn:active {
@@ -673,6 +674,245 @@ tbody td {
 
 .section-content {
     line-height: 1.8;
+}
+
+/* ===== Customer Support ===== */
+.support-shell {
+    display: grid;
+    gap: 1.5rem;
+}
+
+.support-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #fbf5e6 0%, #fff 60%);
+    border: 1px solid #f0dfb6;
+    border-radius: 14px;
+    padding: 1.4rem 1.6rem;
+}
+
+.support-hero h2 {
+    margin: 0;
+    font-size: 2rem;
+}
+
+.support-hero p {
+    margin: 0.35rem 0 0;
+}
+
+.support-eyebrow {
+    color: var(--brand-burgundy);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+}
+
+.support-status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.support-status-active {
+    color: #0f5132;
+    background: #e8f8f0;
+    border: 1px solid #bce9d2;
+}
+
+.support-status-pending {
+    color: #7a4f00;
+    background: #fff4db;
+    border: 1px solid #f6d68d;
+}
+
+.support-status-resolved {
+    color: #5f5f5f;
+    background: #f2f3f5;
+    border: 1px solid #d8dbe2;
+}
+
+.support-layout {
+    display: grid;
+    grid-template-columns: minmax(240px, 300px) 1fr;
+    gap: 1.25rem;
+}
+
+.support-info-card {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.2rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.support-info-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.3rem;
+}
+
+.support-info-card ul {
+    margin: 0.75rem 0 0;
+    padding-left: 1rem;
+    color: var(--text-medium);
+}
+
+.support-last-updated {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-color);
+    font-size: 0.86rem;
+    color: var(--text-medium);
+}
+
+.support-chat-panel {
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 540px;
+}
+
+.support-chat-header {
+    padding: 1rem 1.2rem;
+    border-bottom: 1px solid var(--border-light);
+    background: linear-gradient(180deg, #fff9eb 0%, #fff 90%);
+}
+
+.support-chat-header h3 {
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.support-chat-header p {
+    margin: 0.2rem 0 0;
+    font-size: 0.92rem;
+}
+
+.support-chat-messages {
+    padding: 1rem;
+    background: linear-gradient(180deg, #fcfcfd 0%, #f8f9fb 100%);
+    overflow-y: auto;
+    max-height: 58vh;
+}
+
+.support-empty-chat {
+    min-height: 260px;
+    display: grid;
+    place-items: center;
+    color: var(--text-light);
+    text-align: center;
+    gap: 0.4rem;
+}
+
+.support-empty-chat i {
+    font-size: 2.2rem;
+    color: var(--brand-gold-dark);
+}
+
+.support-message-row {
+    display: flex;
+    margin-bottom: 0.8rem;
+}
+
+.support-message-customer {
+    justify-content: flex-end;
+}
+
+.support-message-manager {
+    justify-content: flex-start;
+}
+
+.support-message-bubble {
+    max-width: min(76%, 640px);
+    border-radius: 14px;
+    padding: 0.75rem 0.85rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.support-message-customer .support-message-bubble {
+    background: linear-gradient(135deg, var(--brand-burgundy) 0%, #7f1238 100%);
+    color: white;
+    border-bottom-right-radius: 4px;
+}
+
+.support-message-manager .support-message-bubble {
+    background: #ffffff;
+    border: 1px solid var(--border-color);
+    border-bottom-left-radius: 4px;
+}
+
+.support-message-sender {
+    font-size: 0.76rem;
+    font-weight: 700;
+    margin-bottom: 0.2rem;
+    opacity: 0.9;
+}
+
+.support-message-text {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.support-message-time {
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+    opacity: 0.85;
+}
+
+.support-chat-input-wrap {
+    padding: 0.9rem 1rem 1rem;
+    border-top: 1px solid var(--border-light);
+    background: #fff;
+}
+
+.support-chat-input-form {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 0.6rem;
+}
+
+.support-chat-input {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 0.9rem;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.support-chat-input:focus {
+    border-color: var(--brand-gold-dark);
+    box-shadow: 0 0 0 3px rgba(224, 191, 99, 0.2);
+}
+
+.support-chat-send-btn {
+    border: none;
+    border-radius: 10px;
+    background: var(--brand-burgundy);
+    color: #fff;
+    padding: 0.8rem 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.support-chat-send-btn:hover {
+    background: var(--brand-burgundy-dark);
+}
+
+.support-chat-send-btn:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
 }
 
 /* Dashboard Grid for Side-by-Side Sections */
@@ -1179,7 +1419,7 @@ tbody td {
     width: 100%;
     border: 1px solid var(--brand-burgundy);
     background: var(--brand-burgundy);
-    color: var(--text-white);
+    color: #ffffff;
     padding: 0.7rem 1rem;
     font-size: 0.9rem;
     font-weight: 600;
@@ -1188,8 +1428,9 @@ tbody td {
 }
 
 .home-add-cart-btn:hover:not(:disabled) {
-    background: var(--brand-burgundy-light);
-    border-color: var(--brand-burgundy-light);
+    background: var(--brand-burgundy-dark);
+    border-color: var(--brand-burgundy-dark);
+    color: #ffffff;
 }
 
 .home-add-cart-btn:disabled {
@@ -1446,6 +1687,19 @@ tbody td {
         grid-template-columns: 1fr;
     }
 
+    .support-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .support-chat-panel {
+        min-height: 460px;
+    }
+
+    .support-hero {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
     .quick-actions {
         grid-template-columns: 1fr;
     }
@@ -1528,5 +1782,13 @@ tbody td {
 
     .section-title {
         font-size: 2rem;
+    }
+
+    .support-chat-input-form {
+        grid-template-columns: 1fr;
+    }
+
+    .support-chat-send-btn {
+        width: 100%;
     }
 }

@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import authManager from '../auth.js';
 
+const ZAPIER_CHATBOT_SCRIPT_SRC =
+  'https://interfaces.zapier.com/assets/web-components/zapier-interfaces/zapier-interfaces.esm.js';
+
 const ACTIVE_ORDER_STATUSES = [
   'Pending',
   'Confirmed',
@@ -14,8 +17,8 @@ function renderStars(rating) {
   return [1, 2, 3, 4, 5].map((value) => (value <= Number(rating || 0) ? '★' : '☆')).join('');
 }
 
-function getDraftKey(item) {
-  return `${item.orderId}:${item.productId}`;
+function getDraftKey(orderId, productId) {
+    return `${orderId}:${productId}`;
 }
 
 export default function CustomerDashboardPage() {
@@ -23,8 +26,10 @@ export default function CustomerDashboardPage() {
   const [cart] = useState(() => JSON.parse(localStorage.getItem('saranyaCart') || '[]'));
   const [stats, setStats] = useState({ totalOrders: 0, activeOrders: 0, wishlistCount: 0 });
   const [promotions, setPromotions] = useState([]);
-  const [reviewItems, setReviewItems] = useState([]);
+  const [standardOffers, setStandardOffers] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [reviewDrafts, setReviewDrafts] = useState({});
+  const [reviewsByItem, setReviewsByItem] = useState({});
 
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isPasswordOpen, setIsPasswordOpen] = useState(false);
@@ -46,6 +51,18 @@ export default function CustomerDashboardPage() {
 
   useEffect(() => {
     document.title = 'Customer Dashboard - Saranya Jewellery';
+  }, []);
+
+  useEffect(() => {
+    if (document.querySelector(`script[src="${ZAPIER_CHATBOT_SCRIPT_SRC}"]`)) {
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = ZAPIER_CHATBOT_SCRIPT_SRC;
+    script.type = 'module';
+    script.async = true;
+    document.head.appendChild(script);
   }, []);
 
   useEffect(() => {
@@ -73,19 +90,11 @@ export default function CustomerDashboardPage() {
     if (!customer) return;
 
     async function loadData() {
-      await Promise.all([loadOrderStats(), loadPromotions(), loadReviewItems()]);
+      await Promise.all([loadOrderStats(), loadPromotions(), loadStandardOffers(), loadAllOrders()]);
+      await loadCustomerReviews();
     }
 
     loadData();
-  }, [customer]);
-
-  useEffect(() => {
-    if (!customer) return;
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('openProfile') === 'true') {
-      setIsProfileOpen(true);
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
   }, [customer]);
 
   async function loadOrderStats() {
@@ -124,27 +133,54 @@ export default function CustomerDashboardPage() {
     }
   }
 
-  async function loadReviewItems() {
+  async function loadStandardOffers() {
     try {
-      const response = await authManager.apiRequest('/api/reviews/customer/eligible-items');
-      if (!response.ok) throw new Error('Failed to load review items');
+      const response = await authManager.apiRequest('/api/loyalty/offers/standard/active/list');
+      if (!response.ok) {
+        setStandardOffers([]);
+        return;
+      }
 
-      const items = await response.json();
-      setReviewItems(items);
-
-      const nextDrafts = {};
-      items.forEach((item) => {
-        const key = getDraftKey(item);
-        nextDrafts[key] = {
-          rating: item.review?.rating || 0,
-          comment: item.review?.comment || ''
-        };
-      });
-      setReviewDrafts(nextDrafts);
+      const offers = await response.json();
+      setStandardOffers(offers || []);
     } catch (error) {
-      console.error('Error loading review items:', error);
-      setReviewItems([]);
-      setReviewDrafts({});
+      console.error('Error loading standard offers:', error);
+      setStandardOffers([]);
+    }
+  }
+
+  async function loadAllOrders() {
+    try {
+      const response = await authManager.apiRequest('/api/orders/my-orders');
+      if (!response.ok) throw new Error('Failed to load orders');
+
+      const orders = await response.json();
+      setAllOrders(orders || []);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      setAllOrders([]);
+    }
+  }
+
+  async function loadCustomerReviews() {
+    try {
+      // Fetch customer's own reviews from backend
+      const response = await authManager.apiRequest('/api/reviews/my/reviews');
+      if (!response.ok) return;
+
+      const data = await response.json();
+      const reviews = data.reviews || [];
+
+      // Build reviewsByItem map with orderId:productId as key
+      const reviewMap = {};
+      reviews.forEach((review) => {
+        const key = getDraftKey(review.orderId, review.productId);
+        reviewMap[key] = review;
+      });
+
+      setReviewsByItem(reviewMap);
+    } catch (error) {
+      console.error('Error loading customer reviews:', error);
     }
   }
 
@@ -224,8 +260,8 @@ export default function CustomerDashboardPage() {
     }
   }
 
-  async function saveReview(item) {
-    const key = getDraftKey(item);
+  async function saveReview(orderId, productId, productName) {
+    const key = getDraftKey(orderId, productId);
     const draft = reviewDrafts[key] || { rating: 0, comment: '' };
     const rating = Number(draft.rating || 0);
 
@@ -238,9 +274,10 @@ export default function CustomerDashboardPage() {
       const response = await authManager.apiRequest('/api/reviews', {
         method: 'POST',
         body: JSON.stringify({
-          orderId: item.orderId,
-          productId: item.productId,
+          orderId,
+          productId,
           rating,
+          title: `${productName} Review`,
           comment: draft.comment || ''
         })
       });
@@ -248,14 +285,25 @@ export default function CustomerDashboardPage() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Failed to save review');
 
-      alert('Review saved successfully.');
-      await loadReviewItems();
+      // Store the review and clear the draft
+      setReviewsByItem((prev) => ({
+        ...prev,
+        [key]: payload.review
+      }));
+      setReviewDrafts((prev) => ({
+        ...prev,
+        [key]: { rating: 0, comment: '' }
+      }));
+      
+      // Reload reviews from backend to ensure persistence
+      await loadCustomerReviews();
+      alert('Review saved successfully. Please wait for customer care approval to see it on the product page.');
     } catch (error) {
       alert(error.message || 'Failed to save review');
     }
   }
 
-  async function deleteReview(reviewId) {
+  async function deleteReview(reviewId, orderId, productId) {
     if (!reviewId) return;
     if (!window.confirm('Delete this rating and review?')) return;
 
@@ -264,8 +312,15 @@ export default function CustomerDashboardPage() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || 'Failed to delete review');
 
+      // Remove the review from state
+      const key = getDraftKey(orderId, productId);
+      setReviewsByItem((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      
       alert('Review deleted successfully.');
-      await loadReviewItems();
     } catch (error) {
       alert(error.message || 'Failed to delete review');
     }
@@ -356,12 +411,60 @@ export default function CustomerDashboardPage() {
             </div>
           </div>
 
-          {promotions.length > 0 ? (
+          {(promotions.length > 0 || standardOffers.length > 0) ? (
             <div className="section">
               <div className="section-header">
                 <h2>Latest Offers and Announcements</h2>
               </div>
               <div className="section-content">
+                {standardOffers.map((offer) => (
+                  <div
+                    key={offer._id}
+                    style={{
+                      background: 'linear-gradient(135deg, #6f0022 0%, #8b0028 100%)',
+                      color: 'white',
+                      padding: '1.5rem',
+                      borderRadius: '8px',
+                      marginBottom: '1rem',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+                      border: '2px solid var(--brand-gold-strong)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'start', gap: '1rem' }}>
+                      <div style={{ fontSize: '2rem' }}><i className="fas fa-tag" /></div>
+                      <div style={{ flex: 1 }}>
+                        <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--brand-gold-strong)' }}>{offer.title}</h3>
+                        <p style={{ margin: '0 0 0.75rem 0', lineHeight: 1.6 }}>{offer.description}</p>
+                        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', fontSize: '0.95rem', marginBottom: '0.75rem' }}>
+                          {offer.discountPercentage > 0 && (
+                            <div>
+                              <span style={{ color: 'var(--brand-gold-strong)', fontWeight: 600 }}>{offer.discountPercentage}%</span>
+                              <span style={{ color: '#ddd' }}> Discount</span>
+                            </div>
+                          )}
+                          {offer.discountAmount > 0 && (
+                            <div>
+                              <span style={{ color: 'var(--brand-gold-strong)', fontWeight: 600 }}>Rs. {offer.discountAmount}</span>
+                              <span style={{ color: '#ddd' }}> Off</span>
+                            </div>
+                          )}
+                          {offer.couponCode && (
+                            <div>
+                              <span style={{ color: '#ddd' }}>Code: </span>
+                              <span style={{ color: 'var(--brand-gold-strong)', fontWeight: 600, fontFamily: 'monospace' }}>{offer.couponCode}</span>
+                            </div>
+                          )}
+                        </div>
+                        {offer.validUntil ? (
+                          <p style={{ fontSize: '0.85rem', color: '#ddd', margin: 0 }}>
+                            Valid until: {new Date(offer.validUntil).toLocaleDateString()}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
                 {promotions.map((msg) => {
                   const iconClass =
                     msg.type === 'promotion'
@@ -408,124 +511,137 @@ export default function CustomerDashboardPage() {
               <h2>Rate Your Purchased Items</h2>
             </div>
             <div className="section-content">
-              {!reviewItems.length ? (
+              {!allOrders.length ? (
                 <div className="empty-state">
                   <i className="fas fa-star" style={{ fontSize: '2.5rem', color: '#ddd', marginBottom: '1rem' }} />
                   <p style={{ margin: 0 }}>Place an order to start adding product reviews.</p>
                 </div>
               ) : (
-                reviewItems.slice(0, 20).map((item) => {
-                  const key = getDraftKey(item);
-                  const draft = reviewDrafts[key] || { rating: 0, comment: '' };
-
-                  return (
-                    <div key={key} style={{ border: '1px solid #eee', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
-                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.9rem' }}>
-                        <img
-                          src={item.productImage || '/SaranyaLOGO.jpg'}
-                          alt={item.productName}
-                          style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #eee' }}
-                        />
-                        <div style={{ flex: 1 }}>
-                          <h4 style={{ margin: '0 0 0.3rem', color: 'var(--brand-burgundy)' }}>{item.productName}</h4>
-                          <p style={{ margin: '0.2rem 0', color: '#666', fontSize: '0.9rem' }}>
-                            Order: {item.orderNumber} • {new Date(item.orderDate).toLocaleDateString()}
-                          </p>
-                          <p style={{ margin: '0.2rem 0', color: '#666', fontSize: '0.9rem' }}>Status: {item.orderStatus}</p>
-                        </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.6rem' }}>
-                        {[1, 2, 3, 4, 5].map((starValue) => (
-                          <button
-                            key={starValue}
-                            type="button"
-                            onClick={() => {
-                              setReviewDrafts((prev) => ({
-                                ...prev,
-                                [key]: { ...draft, rating: starValue }
-                              }));
-                            }}
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              cursor: 'pointer',
-                              fontSize: '1.35rem',
-                              lineHeight: 1,
-                              color: starValue <= Number(draft.rating || 0) ? '#e0bf63' : '#ddd'
-                            }}
-                          >
-                            ★
-                          </button>
-                        ))}
-                      </div>
-
-                      <textarea
-                        rows={2}
-                        maxLength={1000}
-                        placeholder="Write a short review (optional)"
-                        style={{ width: '100%', border: '1px solid #ddd', borderRadius: '6px', padding: '0.65rem', marginBottom: '0.6rem' }}
-                        value={draft.comment}
-                        onChange={(event) => {
-                          const comment = event.target.value;
-                          setReviewDrafts((prev) => ({
-                            ...prev,
-                            [key]: { ...draft, comment }
-                          }));
-                        }}
-                      />
-
-                      <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => saveReview(item)}
-                          style={{
-                            background: 'var(--brand-burgundy)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '0.6rem 1rem',
-                            cursor: 'pointer',
-                            fontWeight: 600
-                          }}
-                        >
-                          {item.review ? 'Update Review' : 'Submit Review'}
-                        </button>
-
-                        {item.review ? (
-                          <button
-                            type="button"
-                            onClick={() => deleteReview(item.review._id)}
-                            style={{
-                              background: '#dc3545',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '6px',
-                              padding: '0.6rem 1rem',
-                              cursor: 'pointer',
-                              fontWeight: 600
-                            }}
-                          >
-                            Delete Rating
-                          </button>
-                        ) : null}
-                      </div>
-
-                      {item.review ? (
-                        <div style={{ marginTop: '0.9rem', background: '#faf7ee', borderRadius: '6px', padding: '0.8rem' }}>
-                          <p style={{ margin: '0 0 0.35rem', color: '#666', fontSize: '0.9rem' }}>
-                            Your review: <span style={{ color: '#e0bf63' }}>{renderStars(item.review.rating)}</span>
-                          </p>
-                          {item.review.careReply?.comment ? (
-                            <p style={{ margin: 0, color: '#6f0022', fontSize: '0.92rem' }}>
-                              <strong>Customer Care Reply:</strong> {item.review.careReply.comment}
-                            </p>
-                          ) : null}
-                        </div>
-                      ) : null}
+                allOrders.map((order) => (
+                  <div key={order._id} style={{ marginBottom: '2rem', background: '#faf8f3', border: '1px solid #eee', borderRadius: '8px', padding: '1.5rem' }}>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <h4 style={{ margin: '0 0 0.5rem', color: 'var(--brand-burgundy)' }}>Order #{order.orderNumber}</h4>
+                      <p style={{ margin: '0.3rem 0', color: '#666', fontSize: '0.9rem' }}>
+                        {new Date(order.createdAt).toLocaleDateString()} • <span style={{ color: 'var(--brand-burgundy)', fontWeight: 600 }}>{order.status}</span>
+                      </p>
                     </div>
-                  );
-                })
+
+                    <div style={{ display: 'grid', gap: '1rem' }}>
+                      {order.items.map((item, idx) => {
+                        const draftKey = getDraftKey(order._id, item.productId);
+                        const draft = reviewDrafts[draftKey] || { rating: 0, comment: '' };
+                        const savedReview = reviewsByItem[draftKey];
+
+                        return (
+                          <div key={idx} style={{ background: 'white', border: '1px solid #ddd', borderRadius: '6px', padding: '1rem', display: 'flex', gap: '1rem' }}>
+                            <img
+                              src={item.imageUrl || '/SaranyaLOGO.jpg'}
+                              alt={item.name}
+                              style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px' }}
+                            />
+                            <div style={{ flex: 1 }}>
+                              <h5 style={{ margin: '0 0 0.3rem', color: 'var(--brand-burgundy)' }}>{item.name}</h5>
+                              <p style={{ margin: '0.2rem 0', color: '#666', fontSize: '0.9rem' }}>{item.category} - {item.karat}</p>
+                              <p style={{ margin: '0.2rem 0', color: '#666', fontSize: '0.9rem' }}>Qty: {item.quantity} • Price: Rs. {item.price?.toLocaleString()}</p>
+
+                              {!savedReview ? (
+                                <>
+                                  <div style={{ marginTop: '0.8rem', display: 'flex', gap: '0.35rem', marginBottom: '0.6rem' }}>
+                                    {[1, 2, 3, 4, 5].map((starValue) => (
+                                      <button
+                                        key={starValue}
+                                        type="button"
+                                        onClick={() => {
+                                          setReviewDrafts((prev) => ({
+                                            ...prev,
+                                            [draftKey]: { ...draft, rating: starValue }
+                                          }));
+                                        }}
+                                        style={{
+                                          border: 'none',
+                                          background: 'transparent',
+                                          cursor: 'pointer',
+                                          fontSize: '1.2rem',
+                                          lineHeight: 1,
+                                          color: starValue <= Number(draft.rating || 0) ? '#e0bf63' : '#ddd'
+                                        }}
+                                      >
+                                        ★
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  <textarea
+                                    rows={2}
+                                    maxLength={1000}
+                                    placeholder="Write a short review (optional)"
+                                    style={{ width: '100%', border: '1px solid #ddd', borderRadius: '4px', padding: '0.5rem', marginBottom: '0.6rem', fontSize: '0.9rem' }}
+                                    value={draft.comment}
+                                    onChange={(e) => {
+                                      setReviewDrafts((prev) => ({
+                                        ...prev,
+                                        [draftKey]: { ...draft, comment: e.target.value }
+                                      }));
+                                    }}
+                                  />
+
+                                  <button
+                                    type="button"
+                                    onClick={() => saveReview(order._id, item.productId, item.name)}
+                                    style={{
+                                      background: 'var(--brand-burgundy)',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      padding: '0.6rem 1.2rem',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      fontSize: '0.9rem'
+                                    }}
+                                  >
+                                    Add Review
+                                  </button>
+                                </>
+                              ) : (
+                                <div style={{ marginTop: '0.8rem', background: '#f5f5f5', borderRadius: '4px', padding: '0.8rem' }}>
+                                  <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.85rem', fontWeight: 600 }}>
+                                    Your Review: <span style={{ color: '#e0bf63' }}>{renderStars(savedReview.rating)}</span>
+                                  </p>
+                                  {savedReview.comment && (
+                                    <p style={{ margin: '0.3rem 0', color: '#333', fontSize: '0.9rem' }}>{savedReview.comment}</p>
+                                  )}
+                                  {savedReview.staffReply?.reply && (
+                                    <div style={{ marginTop: '0.5rem', borderLeft: '3px solid #6f0022', paddingLeft: '0.5rem' }}>
+                                      <p style={{ margin: '0 0 0.2rem', color: '#6f0022', fontSize: '0.8rem', fontWeight: 600 }}>Staff Reply:</p>
+                                      <p style={{ margin: 0, color: '#555', fontSize: '0.85rem' }}>{savedReview.staffReply.reply}</p>
+                                    </div>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => deleteReview(savedReview._id, order._id, item.productId)}
+                                    style={{
+                                      marginTop: '0.5rem',
+                                      background: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      padding: '0.5rem 1rem',
+                                      cursor: 'pointer',
+                                      fontWeight: 600,
+                                      fontSize: '0.85rem'
+                                    }}
+                                  >
+                                    Delete Review
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
@@ -711,6 +827,11 @@ export default function CustomerDashboardPage() {
           </div>
         </div>
       ) : null}
+
+      <zapier-interfaces-chatbot-embed
+        is-popup="true"
+        chatbot-id="cmo5zldf1004p4ftzwiocldrz"
+      />
     </>
   );
 }

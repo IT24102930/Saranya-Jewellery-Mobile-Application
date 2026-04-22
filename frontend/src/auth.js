@@ -20,8 +20,17 @@ class AuthManager {
    * Make authenticated API request with credentials
    */
   async apiRequest(url, options = {}) {
+    // Determine API base URL
+    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+    const apiBaseUrl = isProduction 
+      ? window.location.origin 
+      : 'http://localhost:3000';
+    
+    // Build full URL if relative path provided
+    const fullUrl = url.startsWith('http') ? url : `${apiBaseUrl}${url}`;
+
     const defaultOptions = {
-      credentials: 'same-origin', // Always include cookies
+      credentials: 'include', // Include cookies from cross-origin requests
       headers: {
         'Content-Type': 'application/json',
         ...options.headers
@@ -38,7 +47,7 @@ class AuthManager {
       }
     };
 
-    const response = await fetch(url, mergedOptions);
+    const response = await fetch(fullUrl, mergedOptions);
     return response;
   }
 

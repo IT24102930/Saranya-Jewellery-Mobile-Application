@@ -33,8 +33,8 @@ export default function StaffRegisterPage() {
       showAlert('Please enter a valid email address');
       return;
     }
-    if (form.password.length < 6) {
-      showAlert('Password must be at least 6 characters long');
+    if (form.password.length < 8) {
+      showAlert('Password must be at least 8 characters long');
       return;
     }
     if (form.password !== form.confirmPassword) {
@@ -132,7 +132,7 @@ export default function StaffRegisterPage() {
             name="password"
             placeholder="Create a password"
             required
-            minLength={6}
+            minLength={8}
             value={form.password}
             onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
           />
@@ -146,7 +146,7 @@ export default function StaffRegisterPage() {
             name="confirmPassword"
             placeholder="Re-enter password"
             required
-            minLength={6}
+            minLength={8}
             value={form.confirmPassword}
             onChange={(event) => setForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
           />

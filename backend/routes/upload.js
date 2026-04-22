@@ -1,8 +1,8 @@
 import express from 'express';
 import multer from 'multer';
-import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
+import streamifier from 'streamifier';
+import { v2 as cloudinary } from 'cloudinary';
 import { isAuthenticated, isProductManager } from '../middleware/auth.js';
 
 // Middleware to check if customer is authenticated
@@ -14,27 +14,48 @@ const isCustomerAuthenticated = (req, res, next) => {
 };
 
 const router = express.Router();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const uploadsDir = path.join(__dirname, '../uploads');
 
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+let cloudinaryConfigured = false;
+
+function hasCloudinaryConfig() {
+  return Boolean(
+    process.env.CLOUDINARY_CLOUD_NAME
+    && process.env.CLOUDINARY_API_KEY
+    && process.env.CLOUDINARY_API_SECRET
+  );
 }
 
-// Configure multer storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    // Generate unique filename
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext).replace(/\s+/g, '-');
-    cb(null, name + '-' + uniqueSuffix + ext);
-  }
-});
+function ensureCloudinaryConfigured() {
+  if (cloudinaryConfigured) return;
+  if (!hasCloudinaryConfig()) return;
+
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+  cloudinaryConfigured = true;
+}
+
+function uploadToCloudinary(fileBuffer, folder) {
+  return new Promise((resolve, reject) => {
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder,
+        resource_type: 'image'
+      },
+      (error, result) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(result);
+      }
+    );
+
+    streamifier.createReadStream(fileBuffer).pipe(uploadStream);
+  });
+}
 
 // File filter to accept only images
 const fileFilter = (req, file, cb) => {
@@ -51,7 +72,7 @@ const fileFilter = (req, file, cb) => {
 
 // Configure multer
 const upload = multer({
-  storage: storage,
+  storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
@@ -59,19 +80,23 @@ const upload = multer({
 });
 
 // POST /api/upload - Upload image (requires Product Manager role)
-router.post('/', isAuthenticated, isProductManager, upload.single('image'), (req, res) => {
+router.post('/', isAuthenticated, isProductManager, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    // Return the relative path to be saved in the database
-    const imagePath = `/uploads/${req.file.filename}`;
-    
+    ensureCloudinaryConfigured();
+    if (!cloudinaryConfigured) {
+      return res.status(500).json({ message: 'Cloudinary is not configured on server' });
+    }
+
+    const uploaded = await uploadToCloudinary(req.file.buffer, 'saranya/products');
+
     res.json({
       message: 'Image uploaded successfully',
-      imagePath: imagePath,
-      filename: req.file.filename
+      imagePath: uploaded.secure_url,
+      filename: uploaded.public_id
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -80,18 +105,23 @@ router.post('/', isAuthenticated, isProductManager, upload.single('image'), (req
 });
 
 // POST /api/upload/receipt - Upload payment receipt (requires customer login)
-router.post('/receipt', isCustomerAuthenticated, upload.single('receipt'), (req, res) => {
+router.post('/receipt', isCustomerAuthenticated, upload.single('receipt'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'No file uploaded' });
     }
 
-    const imagePath = `/uploads/${req.file.filename}`;
-    
+    ensureCloudinaryConfigured();
+    if (!cloudinaryConfigured) {
+      return res.status(500).json({ message: 'Cloudinary is not configured on server' });
+    }
+
+    const uploaded = await uploadToCloudinary(req.file.buffer, 'saranya/receipts');
+
     res.json({
       message: 'Receipt uploaded successfully',
-      imagePath: imagePath,
-      filename: req.file.filename
+      imagePath: uploaded.secure_url,
+      filename: uploaded.public_id
     });
   } catch (error) {
     console.error('Receipt upload error:', error);

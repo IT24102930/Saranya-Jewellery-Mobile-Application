@@ -7,6 +7,7 @@ import CustomerLoyaltyPage from './customer-loyalty.jsx';
 import CustomerOrdersPage from './customer-orders.jsx';
 import CustomerProductPage from './customer-product.jsx';
 import CustomerRegisterPage from './customer-register.jsx';
+import CustomerResetPasswordPage from './customer-reset-password.jsx';
 import CustomerShopPage from './customer-shop.jsx';
 import CustomerSupportPage from './customer-support.jsx';
 import HomePage from './home.jsx';
@@ -27,6 +28,7 @@ export const pages = {
   'customer-orders': CustomerOrdersPage,
   'customer-product': CustomerProductPage,
   'customer-register': CustomerRegisterPage,
+  'customer-reset-password': CustomerResetPasswordPage,
   'customer-shop': CustomerShopPage,
   'customer-support': CustomerSupportPage,
   home: HomePage,

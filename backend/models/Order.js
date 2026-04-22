@@ -78,6 +78,15 @@ const orderSchema = new mongoose.Schema({
     enum: ['Pending', 'Confirmed', 'Invoice Created', 'Payment Received', 'Preparing', 'Ready for Collection', 'Completed', 'Cancelled', 'Refunded'],
     default: 'Pending'
   },
+  // Coupon fields
+  couponCode: {
+    type: String,
+    default: null
+  },
+  couponDiscount: {
+    type: Number,
+    default: 0
+  },
   // Invoice fields
   invoiceNumber: {
     type: String,

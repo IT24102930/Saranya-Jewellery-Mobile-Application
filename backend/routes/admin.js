@@ -5,6 +5,7 @@ import Order from '../models/Order.js';
 import Product from '../models/Product.js';
 import GoldRate from '../models/GoldRate.js';
 import LoyaltyOffer from '../models/LoyaltyOffer.js';
+import StaffAuditLog from '../models/StaffAuditLog.js';
 
 const router = express.Router();
 
@@ -85,6 +86,22 @@ router.get('/stats', isApproved, isAdmin, async (req, res) => {
   } catch (error) {
     console.error('Error fetching admin stats:', error);
     res.status(500).json({ message: 'Failed to fetch statistics' });
+  }
+});
+
+// GET /api/admin/audit-logs - Get staff audit trail
+router.get('/audit-logs', isApproved, isAdmin, async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(parseInt(req.query.limit, 10) || 200, 1000));
+    const logs = await StaffAuditLog.find()
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching audit logs:', error);
+    res.status(500).json({ message: 'Failed to fetch audit logs' });
   }
 });
 

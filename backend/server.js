@@ -21,6 +21,9 @@ import inventoryRoutes from './routes/inventory.js';
 import loyaltyRoutes from './routes/loyalty.js';
 import reviewRoutes from './routes/reviews.js';
 import supplierRoutes from './routes/suppliers.js';
+import appointmentRoutes from './routes/appointments.js';
+import bannerRoutes from './routes/banners.js';
+import staffAuditLogger from './middleware/staffAuditLogger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -61,6 +64,9 @@ app.use(session({
   }
 }));
 
+// Record every staff API action for the admin audit log.
+app.use(staffAuditLogger);
+
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -77,6 +83,8 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/suppliers', supplierRoutes);
+app.use('/api/appointments', appointmentRoutes);
+app.use('/api/banners', bannerRoutes);
 
 // Serve uploaded images from backend storage
 app.use('/uploads', express.static(uploadsDir));

@@ -1,21 +1,37 @@
 import express from 'express';
 import Product from '../models/Product.js';
+import StockItem from '../models/StockItem.js';
+import GoldRate from '../models/GoldRate.js';
 import { isAuthenticated, isProductManager } from '../middleware/auth.js';
 import Staff from '../models/Staff.js';
 
 const router = express.Router();
 
+function normalizeProductCategory(category) {
+  if (category === 'Bangle') return 'Bangles';
+  if (category === 'Earring') return 'Earrings';
+  return category;
+}
+
 // Get inventory-backed stock options for product manager (protected)
 router.get('/stock-options', isProductManager, async (req, res) => {
   try {
-    const stockItems = await Product.find({
-      stockQuantity: { $gt: 0 },
-      productStatus: 'Draft'
-    })
-      .select('name category stockQuantity kType weight supplier image productStatus')
+    const stockItems = await StockItem.find({ quantity: { $gt: 0 } })
+      .populate('supplier', 'name')
+      .select('serial name category karat weight quantity supplier status')
       .sort({ updatedAt: -1 });
 
-    res.json(stockItems);
+    // Fetch latest gold rates
+    const latestRates = await GoldRate.findOne().sort({ lastUpdated: -1 });
+    
+    // Add calculated karatRate to each stock item
+    const itemsWithRates = stockItems.map(item => {
+      const itemObj = item.toObject();
+      itemObj.karatRate = latestRates?.[item.karat] || 0;
+      return itemObj;
+    });
+
+    res.json(itemsWithRates);
   } catch (error) {
     res.status(500).json({ message: 'Error fetching stock options', error: error.message });
   }
@@ -107,8 +123,14 @@ router.post('/', isProductManager, async (req, res) => {
       description,
       image,
       category,
+      taxPercentage,
       featured
     } = req.body;
+
+    const parsedTaxPercentage = Number(taxPercentage ?? 0);
+    if (!Number.isFinite(parsedTaxPercentage) || parsedTaxPercentage < 0 || parsedTaxPercentage > 100) {
+      return res.status(400).json({ message: 'Tax percentage must be between 0 and 100' });
+    }
 
     // Debug logging
     console.log('Creating product with data:', {
@@ -128,25 +150,40 @@ router.post('/', isProductManager, async (req, res) => {
     }
 
     // If product manager selected an existing inventory stock item,
-    // update and publish that same product instead of creating a duplicate.
+    // create a product using the stock item as the source record.
     if (stockProductId) {
-      const stockProduct = await Product.findById(stockProductId);
+      if (!name || !name.trim()) {
+        return res.status(400).json({ message: 'Please provide jewellery name' });
+      }
+
+      const stockProduct = await StockItem.findById(stockProductId).populate('supplier', 'name');
       if (!stockProduct) {
         return res.status(404).json({ message: 'Selected stock item not found' });
       }
 
-      if (description) stockProduct.description = description;
-      if (image) stockProduct.image = image;
-      if (featured !== undefined) stockProduct.featured = featured;
+      const latestRates = await GoldRate.findOne().sort({ lastUpdated: -1 });
+      const karatRate = latestRates?.[stockProduct.karat] || 0;
 
-      // Keep inventory values as source of truth, but allow optional overrides.
-      if (name) stockProduct.name = name;
-      if (category) stockProduct.category = category;
+      const product = new Product({
+        name: name.trim(),
+        description: description || `${stockProduct.name} created from inventory stock ${stockProduct.serial}`,
+        image: image || '/assets/placeholder-product.jpg',
+        category: normalizeProductCategory(category || stockProduct.category),
+        taxPercentage: parsedTaxPercentage,
+        featured: featured || false,
+        weight: stockProduct.weight || 0,
+        kType: stockProduct.karat || null,
+        karatRate,
+        stockQuantity: stockProduct.quantity || 0,
+        supplier: stockProduct.supplier?.name || '',
+        sku: stockProduct.serial,
+        productStatus: 'Active',
+        createdBy: req.session.staffId
+      });
 
-      stockProduct.productStatus = 'Active';
-      await stockProduct.save();
+      await product.save();
 
-      const populatedStockProduct = await Product.findById(stockProduct._id)
+      const populatedStockProduct = await Product.findById(product._id)
         .populate('createdBy', 'fullName email');
 
       return res.status(200).json(populatedStockProduct);
@@ -162,6 +199,7 @@ router.post('/', isProductManager, async (req, res) => {
       description,
       image,
       category,
+      taxPercentage: parsedTaxPercentage,
       featured: featured || false,
       productStatus: 'Draft',
       createdBy: req.session.staffId
@@ -195,6 +233,7 @@ router.put('/:id', isProductManager, async (req, res) => {
       description,
       image,
       category,
+      taxPercentage,
       featured,
       availabilityStatus,
       productStatus
@@ -204,6 +243,13 @@ router.put('/:id', isProductManager, async (req, res) => {
     if (description) product.description = description;
     if (image) product.image = image;
     if (category) product.category = category;
+    if (taxPercentage !== undefined) {
+      const parsedTaxPercentage = Number(taxPercentage);
+      if (!Number.isFinite(parsedTaxPercentage) || parsedTaxPercentage < 0 || parsedTaxPercentage > 100) {
+        return res.status(400).json({ message: 'Tax percentage must be between 0 and 100' });
+      }
+      product.taxPercentage = parsedTaxPercentage;
+    }
     if (featured !== undefined) product.featured = featured;
     if (availabilityStatus && ['In Stock', 'Out of Stock', 'Pre-Order'].includes(availabilityStatus)) {
       product.availabilityStatus = availabilityStatus;

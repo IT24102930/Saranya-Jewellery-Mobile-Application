@@ -5,15 +5,10 @@
   "private": true,
   "scripts": {
     "dev": "node backend/server.js",
-    "dev:all": "kill-port 3000 5173 8081 8082 && concurrently -n backend,frontend,mobile -c green,cyan,magenta \"node backend/server.js\" \"npm --prefix frontend run dev -- --host 0.0.0.0 --port 5173\" \"npm --prefix mobile run start -- --lan -c --port 8081\"",
     "start": "node backend/server.js",
     "frontend:install": "npm --prefix frontend install",
     "frontend:build": "npm --prefix frontend run build",
-    "mobile:install": "npm --prefix mobile install",
-    "mobile:start": "npm --prefix mobile run start",
-    "mobile:lan": "npm --prefix mobile run start -- --lan",
-    "start:mern": "npm run frontend:build && node backend/server.js",
-    "seed:admin": "node backend/seedAdmin.js"
+    "start:mern": "npm run frontend:build && node backend/server.js"
   },
   "keywords": [],
   "author": "",
@@ -22,6 +17,7 @@
   "dependencies": {
     "axios": "^1.7.2",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.9.0",
     "connect-mongo": "^6.0.0",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.3",
@@ -29,10 +25,7 @@
     "express-session": "^1.19.0",
     "mongoose": "^9.1.5",
     "multer": "^2.1.0",
-    "nodemailer": "^8.0.1"
-  },
-  "devDependencies": {
-    "concurrently": "^9.2.1",
-    "kill-port": "^2.0.1"
+    "nodemailer": "^8.0.1",
+    "streamifier": "^0.1.1"
   }
 }

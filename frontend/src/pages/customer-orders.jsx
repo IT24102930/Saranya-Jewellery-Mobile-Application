@@ -159,7 +159,7 @@ export default function CustomerOrdersPage() {
         <div className="logo">SARANYA JEWELLERY</div>
         <div className="header-icons">
           <i className="fas fa-search header-icon" />
-          <a href="/customer-dashboard?openProfile=true"><i className="fas fa-user header-icon" /></a>
+          <a href="/customer-dashboard"><i className="fas fa-user header-icon" /></a>
           <a href="/customer-cart" style={{ position: 'relative' }}>
             <i className="fas fa-shopping-cart header-icon" />
             {cartCount > 0 ? (

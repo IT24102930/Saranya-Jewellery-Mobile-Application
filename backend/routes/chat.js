@@ -204,7 +204,8 @@ router.post('/:chatId/reply', isAuthenticated, hasRole('Customer Care', 'Admin')
 
     res.json({ 
       success: true, 
-      message: 'Reply sent successfully'
+      message: 'Reply sent successfully',
+      chat
     });
   } catch (error) {
     console.error('Error sending reply:', error);
@@ -237,6 +238,29 @@ router.patch('/:chatId/status', isAuthenticated, hasRole('Customer Care', 'Admin
   } catch (error) {
     console.error('Error updating status:', error);
     res.status(500).json({ message: 'Error updating status', error: error.message });
+  }
+});
+
+// Delete a message from a chat
+router.delete('/:chatId/message/:messageIndex', isAuthenticated, hasRole('Customer Care', 'Admin'), async (req, res) => {
+  try {
+    const { chatId, messageIndex } = req.params;
+    const chat = await CustomerChat.findById(chatId);
+    
+    if (!chat) return res.status(404).json({ message: 'Chat not found' });
+    
+    const index = parseInt(messageIndex);
+    if (index < 0 || index >= chat.messages.length) {
+      return res.status(400).json({ message: 'Invalid message index' });
+    }
+    
+    // Remove the message at the specified index
+    chat.messages.splice(index, 1);
+    await chat.save();
+    
+    res.json({ message: 'Message deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Error deleting message', error: err.message });
   }
 });
 

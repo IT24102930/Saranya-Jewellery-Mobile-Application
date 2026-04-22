@@ -1,8 +1,14 @@
 import StockItem from '../models/StockItem.js';
 
 const generateSerial = async () => {
-  const count = await StockItem.countDocuments();
-  return `SJI-${String(count + 1).padStart(3, '0')}`;
+  const items = await StockItem.find().select('serial').lean();
+  const highestSerial = items.reduce((max, item) => {
+    const match = String(item.serial || '').match(/(\d+)$/);
+    const serialNumber = match ? Number(match[1]) : 0;
+    return serialNumber > max ? serialNumber : max;
+  }, 0);
+
+  return `SJI-${String(highestSerial + 1).padStart(3, '0')}`;
 };
 
 // CREATE

@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+
+const ZAPIER_CHATBOT_SCRIPT_SRC =
+  'https://interfaces.zapier.com/assets/web-components/zapier-interfaces/zapier-interfaces.esm.js';
 
 const CATEGORIES = ['Ring', 'Necklace', 'Bracelet', 'Earring', 'Pendant', 'Chain', 'Bangles', 'Anklet', 'Other'];
 const KARATS = ['18K', '22K', '24K'];
@@ -9,15 +12,41 @@ export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [userIconHref, setUserIconHref] = useState('/customer-login');
   const [filters, setFilters] = useState({ category: '', karat: '', availability: '', featured: false });
+  const [searchText, setSearchText] = useState('');
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('saranyaCart') || '[]'));
+  const [banners, setBanners] = useState([]);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const searchInputRef = useRef(null);
 
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
     [cart]
   );
 
+  const visibleProducts = useMemo(() => {
+    const term = searchText.trim().toLowerCase();
+    if (!term) return products;
+
+    return products.filter((product) => {
+      const fields = [product.name, product.category, product.kType, product.karat];
+      return fields.some((value) => String(value || '').toLowerCase().includes(term));
+    });
+  }, [products, searchText]);
+
   useEffect(() => {
     document.title = 'Saranya Jewellery - Elegance Redefined';
+  }, []);
+
+  useEffect(() => {
+    if (document.querySelector(`script[src="${ZAPIER_CHATBOT_SCRIPT_SRC}"]`)) {
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.src = ZAPIER_CHATBOT_SCRIPT_SRC;
+    script.type = 'module';
+    script.async = true;
+    document.head.appendChild(script);
   }, []);
 
   useEffect(() => {
@@ -41,6 +70,37 @@ export default function HomePage() {
   useEffect(() => {
     loadProducts();
   }, [filters]);
+
+  async function loadBanners() {
+    try {
+      const response = await fetch('/api/banners');
+      if (response.ok) {
+        const data = await response.json();
+        setBanners(Array.isArray(data) ? data : []);
+      }
+    } catch (error) {
+      console.error('Error loading banners:', error);
+      setBanners([]);
+    }
+  }
+
+  useEffect(() => {
+    loadBanners();
+  }, []);
+
+  // Auto-rotate banners every 5 seconds if there are 2 or more
+  useEffect(() => {
+    if (banners.length < 2) {
+      setCurrentBannerIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentBannerIndex(prev => (prev + 1) % banners.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [banners]);
 
   async function loadProducts() {
     setLoading(true);
@@ -115,22 +175,45 @@ export default function HomePage() {
   return (
     <>
       <div className="top-bar">
-        <div><i className="fas fa-phone" /> <a href="tel:+1234567890">Contact Us</a></div>
+        <div><i className="fas fa-phone" /> <a href="tel:0352222098">Contact Us</a></div>
         <div />
       </div>
+
+      {banners.length > 0 && (
+        <div style={{
+          background: banners[currentBannerIndex].backgroundColor || '#fff3cd',
+          color: banners[currentBannerIndex].textColor || '#856404',
+          padding: '1rem',
+          textAlign: 'center',
+          fontSize: '0.95rem',
+          fontWeight: 500,
+          borderBottom: `2px solid ${banners[currentBannerIndex].textColor || '#856404'}`,
+          transition: 'all 0.5s ease-in-out'
+        }}>
+          {banners[currentBannerIndex].message}
+        </div>
+      )}
 
       <header className="header">
         <div className="nav">
           <a href="#home">Home</a>
-          <a href="#collections">Shop</a>
-          <a href="#rings">Rings</a>
-          <a href="#necklaces">Necklaces</a>
+          <a href="/customer-shop">Shop</a>
         </div>
 
         <div className="logo">SARANYA JEWELLERY</div>
 
         <div className="header-icons">
-          <i className="fas fa-search header-icon" />
+          <button
+            type="button"
+            onClick={() => {
+              document.getElementById('collections')?.scrollIntoView({ behavior: 'smooth' });
+              setTimeout(() => searchInputRef.current?.focus(), 300);
+            }}
+            style={{ border: 'none', background: 'transparent', padding: 0, cursor: 'pointer' }}
+            aria-label="Search products"
+          >
+            <i className="fas fa-search header-icon" />
+          </button>
           <a href={userIconHref}><i className="fas fa-user header-icon" /></a>
           <a href="/customer-cart" style={{ position: 'relative' }}>
             <i className="fas fa-shopping-cart header-icon" />
@@ -163,7 +246,7 @@ export default function HomePage() {
               is a diamond necklace, tennis bracelet, diamond earring, blue sapphire ring, emerald ring or diamond
               bracelet.
             </p>
-            <a href="#collections" className="btn">Shop Now</a>
+            <a href="/customer-shop" className="btn">Shop Now</a>
           </div>
           <div className="hero-image">
             <img src="SaranyaLOGO.jpg" alt="Elegant Jewellery Collection" />
@@ -173,17 +256,21 @@ export default function HomePage() {
         <section className="category-showcase">
           <h2 className="section-title">Shop By Category (Fine Jewellery)</h2>
           <div className="category-grid">
-            {['Ring', 'Earring', 'Necklace', 'Bracelet'].map((category) => (
+            {[
+              { name: 'Ring', image: '/RING.jpg' },
+              { name: 'Earring', image: '/EARRINGS.png' },
+              { name: 'Necklace', image: '/NECKLACE.jpg' }
+            ].map((category) => (
               <div
-                key={category}
+                key={category.name}
                 className="category-card"
                 onClick={() => {
-                  setFilters((prev) => ({ ...prev, category }));
+                  setFilters((prev) => ({ ...prev, category: category.name }));
                   document.getElementById('collections')?.scrollIntoView({ behavior: 'smooth' });
                 }}
               >
-                <img src="SaranyaLOGO.jpg" alt={category} />
-                <h3>{category.toUpperCase()}</h3>
+                <img src={category.image} alt={category.name} />
+                <h3>{category.name.toUpperCase()}</h3>
               </div>
             ))}
           </div>
@@ -193,6 +280,16 @@ export default function HomePage() {
           <h2 className="section-title">Popular Fine Jewellery</h2>
 
           <div className="filter-container">
+            <label htmlFor="searchFilter">Search:</label>
+            <input
+              id="searchFilter"
+              ref={searchInputRef}
+              type="text"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search name, category, karat"
+            />
+
             <label htmlFor="categoryFilter">Category:</label>
             <select
               id="categoryFilter"
@@ -242,10 +339,10 @@ export default function HomePage() {
           {loading ? <div className="loading">Loading our beautiful collection...</div> : null}
           {!loading ? (
             <div className="grid-container" id="productsGrid">
-              {products.length === 0 ? (
+              {visibleProducts.length === 0 ? (
                 <div className="no-products">No products found. Check back soon for new arrivals!</div>
               ) : (
-                products.map((product) => {
+                visibleProducts.map((product) => {
                   const statusBadgeClass =
                     product.availabilityStatus === 'In Stock'
                       ? 'badge-in-stock'
@@ -254,7 +351,14 @@ export default function HomePage() {
                         : 'badge-pre-order';
 
                   return (
-                    <div key={product._id} className="product-card">
+                    <div
+                      key={product._id}
+                      className="product-card"
+                      onClick={() => {
+                        window.location.href = `/customer-product?id=${product._id}`;
+                      }}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <img
                         src={product.image || product.imageUrl || '/SaranyaLOGO.jpg'}
                         alt={product.name}
@@ -272,7 +376,10 @@ export default function HomePage() {
                           type="button"
                           className="home-add-cart-btn"
                           disabled={product.availabilityStatus !== 'In Stock'}
-                          onClick={() => addToCart(product)}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            addToCart(product);
+                          }}
                         >
                           Add to Cart
                         </button>
@@ -283,23 +390,6 @@ export default function HomePage() {
               )}
             </div>
           ) : null}
-        </section>
-
-        <section className="featured-sections">
-          <div className="featured-grid">
-            <div className="featured-item">
-              <img src="SaranyaLOGO.jpg" alt="Anniversary Gift Guide" />
-              <h3>Anniversary Gift Guide</h3>
-            </div>
-            <div className="featured-item">
-              <img src="SaranyaLOGO.jpg" alt="Personalized Jewellery" />
-              <h3>Personalized Jewellery</h3>
-            </div>
-            <div className="featured-item">
-              <img src="SaranyaLOGO.jpg" alt="Gemstone Jewellery" />
-              <h3>Gemstone Jewellery Below Rs. 5,000</h3>
-            </div>
-          </div>
         </section>
 
         <section className="category-showcase" id="about">
@@ -366,6 +456,11 @@ export default function HomePage() {
           <p>&copy; 2026 Saranya Jewellery. All Rights Reserved.</p>
         </div>
       </footer>
+
+      <zapier-interfaces-chatbot-embed
+        is-popup="true"
+        chatbot-id="cmo5zldf1004p4ftzwiocldrz"
+      />
     </>
   );
 }

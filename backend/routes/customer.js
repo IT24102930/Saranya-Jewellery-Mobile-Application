@@ -1,10 +1,22 @@
 import express from 'express';
+import crypto from 'crypto';
 import Customer from '../models/Customer.js';
 import Order from '../models/Order.js';
 import emailService from '../utils/emailService.js';
 import { isAdmin, isApproved } from '../middleware/auth.js';
 
 const router = express.Router();
+
+function getOtpHash(email, otp) {
+  return crypto
+    .createHash('sha256')
+    .update(`${String(email || '').toLowerCase().trim()}:${String(otp || '').trim()}`)
+    .digest('hex');
+}
+
+function isStrongPassword(password) {
+  return typeof password === 'string' && password.length >= 8 && /\d/.test(password);
+}
 
 // POST /api/customer/register - Register new customer
 router.post('/register', async (req, res) => {
@@ -100,6 +112,124 @@ router.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Customer login error:', error);
     res.status(500).json({ message: 'Server error during login' });
+  }
+});
+
+// POST /api/customer/forgot-password/send-otp - Send OTP for password reset
+router.post('/forgot-password/send-otp', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!email || !emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Please provide a valid email address' });
+    }
+
+    const customer = await Customer.findOne({ email, isActive: true });
+    if (!customer) {
+      return res.status(404).json({ message: 'No active account found for this email' });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    customer.resetPasswordOtpHash = getOtpHash(email, otp);
+    customer.resetPasswordOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    await customer.save();
+
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #6f0022;">Saranya Jewellery Password Reset</h2>
+        <p>Hello ${customer.fullName || 'Customer'},</p>
+        <p>Use the OTP below to reset your password:</p>
+        <div style="font-size: 28px; font-weight: bold; letter-spacing: 4px; color: #6f0022; margin: 20px 0;">
+          ${otp}
+        </div>
+        <p>This OTP is valid for 10 minutes.</p>
+        <p>If you did not request this, please ignore this email.</p>
+      </div>
+    `;
+
+    const sendResult = await emailService.sendCustomEmail(email, 'Password Reset OTP - Saranya Jewellery', html);
+    if (!sendResult.success) {
+      return res.status(500).json({ message: 'Failed to send OTP email. Please try again.' });
+    }
+
+    return res.json({ message: 'OTP sent to your email successfully' });
+  } catch (error) {
+    console.error('Forgot password send OTP error:', error);
+    return res.status(500).json({ message: 'Server error during OTP send' });
+  }
+});
+
+// POST /api/customer/forgot-password/verify-otp - Verify password reset OTP
+router.post('/forgot-password/verify-otp', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    const otp = String(req.body?.otp || '').trim();
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: 'Email and OTP are required' });
+    }
+
+    const customer = await Customer.findOne({ email, isActive: true });
+    if (!customer || !customer.resetPasswordOtpHash || !customer.resetPasswordOtpExpiresAt) {
+      return res.status(400).json({ message: 'OTP is invalid or expired' });
+    }
+
+    if (new Date(customer.resetPasswordOtpExpiresAt) < new Date()) {
+      return res.status(400).json({ message: 'OTP has expired. Please request a new OTP.' });
+    }
+
+    const otpHash = getOtpHash(email, otp);
+    if (otpHash !== customer.resetPasswordOtpHash) {
+      return res.status(400).json({ message: 'OTP is invalid or expired' });
+    }
+
+    return res.json({ message: 'OTP verified successfully' });
+  } catch (error) {
+    console.error('Forgot password verify OTP error:', error);
+    return res.status(500).json({ message: 'Server error during OTP verification' });
+  }
+});
+
+// POST /api/customer/forgot-password/reset-password - Reset password after OTP verification
+router.post('/forgot-password/reset-password', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    const otp = String(req.body?.otp || '').trim();
+    const newPassword = String(req.body?.newPassword || '');
+
+    if (!email || !otp || !newPassword) {
+      return res.status(400).json({ message: 'Email, OTP and new password are required' });
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters and include at least 1 number' });
+    }
+
+    const customer = await Customer.findOne({ email, isActive: true });
+    if (!customer || !customer.resetPasswordOtpHash || !customer.resetPasswordOtpExpiresAt) {
+      return res.status(400).json({ message: 'OTP is invalid or expired' });
+    }
+
+    if (new Date(customer.resetPasswordOtpExpiresAt) < new Date()) {
+      return res.status(400).json({ message: 'OTP has expired. Please request a new OTP.' });
+    }
+
+    const otpHash = getOtpHash(email, otp);
+    if (otpHash !== customer.resetPasswordOtpHash) {
+      return res.status(400).json({ message: 'OTP is invalid or expired' });
+    }
+
+    customer.password = newPassword;
+    customer.resetPasswordOtpHash = null;
+    customer.resetPasswordOtpExpiresAt = null;
+    customer.updatedAt = Date.now();
+    await customer.save();
+
+    return res.json({ message: 'Password reset successful. Please login with your new password.' });
+  } catch (error) {
+    console.error('Forgot password reset error:', error);
+    return res.status(500).json({ message: 'Server error during password reset' });
   }
 });
 

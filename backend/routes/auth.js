@@ -9,6 +9,14 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password, fullName, role } = req.body;
 
+    if (!email || !password || !fullName) {
+      return res.status(400).json({ message: 'Email, password, and full name are required' });
+    }
+
+    if (String(password).length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters long' });
+    }
+
     // Check if staff already exists
     const existingStaff = await Staff.findOne({ email });
     if (existingStaff) {
@@ -55,6 +63,14 @@ router.post('/login', async (req, res) => {
     // Check if account is active
     if (!staff.isActive) {
       return res.status(403).json({ message: 'Account has been deactivated' });
+    }
+
+    // Block login until account is approved by an admin
+    if (staff.status !== 'Approved') {
+      const message = staff.status === 'Pending'
+        ? 'Your account is pending admin approval'
+        : 'Your account has been rejected by admin';
+      return res.status(403).json({ message });
     }
 
     // Verify password

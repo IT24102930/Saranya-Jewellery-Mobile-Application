@@ -58,6 +58,14 @@ const customerSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  resetPasswordOtpHash: {
+    type: String,
+    default: null
+  },
+  resetPasswordOtpExpiresAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

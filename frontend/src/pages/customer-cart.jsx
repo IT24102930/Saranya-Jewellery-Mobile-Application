@@ -10,6 +10,10 @@ export default function CustomerCartPage() {
   const [receiptPreview, setReceiptPreview] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [couponCode, setCouponCode] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [isValidatingCoupon, setIsValidatingCoupon] = useState(false);
 
   useEffect(() => {
     document.title = 'Shopping Cart - Saranya Jewellery';
@@ -35,8 +39,10 @@ export default function CustomerCartPage() {
     () => cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0),
     [cart]
   );
-  const tax = Math.round(subtotal * 0.03);
-  const total = subtotal + tax;
+  const couponDiscount = appliedCoupon?.discountAmount || 0;
+  const discountedSubtotal = Math.max(0, subtotal - couponDiscount);
+  const tax = Math.round(discountedSubtotal * 0.03);
+  const total = discountedSubtotal + tax;
 
   function persistCart(nextCart) {
     setCart(nextCart);
@@ -57,6 +63,62 @@ export default function CustomerCartPage() {
     const nextCart = [...cart];
     nextCart.splice(index, 1);
     persistCart(nextCart);
+  }
+
+  async function applyCoupon() {
+    if (!couponCode.trim()) {
+      setCouponError('Please enter a coupon code');
+      return;
+    }
+
+    setIsValidatingCoupon(true);
+    setCouponError('');
+
+    try {
+      const response = await authManager.apiRequest('/api/loyalty/coupons/validate', {
+        method: 'POST',
+        body: JSON.stringify({
+          code: couponCode.toUpperCase(),
+          customerId: customer?._id
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setCouponError(data.message || 'Invalid coupon code');
+        return;
+      }
+
+      // Calculate discount
+      const subtotal = cart.reduce((sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0), 0);
+      let discountAmount = 0;
+
+      if (data.coupon.discountType === 'percentage') {
+        discountAmount = Math.round(subtotal * (data.coupon.discountValue / 100));
+      } else {
+        discountAmount = data.coupon.discountValue;
+      }
+
+      setAppliedCoupon({
+        code: data.coupon.code,
+        discountType: data.coupon.discountType,
+        discountValue: data.coupon.discountValue,
+        discountAmount: Math.min(discountAmount, subtotal), // Don't exceed subtotal
+        message: data.coupon.message || 'Coupon applied successfully!'
+      });
+      setCouponError('');
+    } catch (error) {
+      setCouponError(error.message || 'Error validating coupon');
+    } finally {
+      setIsValidatingCoupon(false);
+    }
+  }
+
+  function removeCoupon() {
+    setAppliedCoupon(null);
+    setCouponCode('');
+    setCouponError('');
   }
 
   function openCheckout() {
@@ -85,6 +147,11 @@ export default function CustomerCartPage() {
     event.preventDefault();
     if (!cart.length) {
       alert('Your cart is empty. Please add items first.');
+      return;
+    }
+
+    if (!receiptFile) {
+      alert('Payment receipt is required. Please upload a screenshot of your bank transfer.');
       return;
     }
 
@@ -136,7 +203,9 @@ export default function CustomerCartPage() {
         orderNotes: orderNotes.trim(),
         subtotal,
         tax,
-        total
+        total,
+        couponCode: appliedCoupon?.code || null,
+        couponDiscount: couponDiscount || 0
       };
 
       const response = await authManager.apiRequest('/api/orders', {
@@ -192,7 +261,7 @@ export default function CustomerCartPage() {
         <div className="logo">SARANYA JEWELLERY</div>
         <div className="header-icons">
           <i className="fas fa-search header-icon" />
-          <a href="/customer-dashboard?openProfile=true"><i className="fas fa-user header-icon" /></a>
+          <a href="/customer-dashboard"><i className="fas fa-user header-icon" /></a>
           <a href="/customer-cart" style={{ position: 'relative' }}>
             <i className="fas fa-shopping-cart header-icon" />
             {itemCount > 0 ? (
@@ -258,15 +327,120 @@ export default function CustomerCartPage() {
                     <span>Subtotal ({itemCount} items):</span>
                     <span>Rs. {subtotal.toLocaleString()}</span>
                   </div>
+                  {appliedCoupon && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', color: '#1f7a55' }}>
+                      <span>Discount ({appliedCoupon.discountType === 'percentage' ? appliedCoupon.discountValue + '%' : 'Fixed'}):</span>
+                      <span style={{ fontWeight: 600 }}>-Rs. {appliedCoupon.discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                     <span>Tax (3%):</span>
                     <span>Rs. {tax.toLocaleString()}</span>
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 600, marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 600, marginBottom: '1.5rem' }}>
                   <span>Total:</span>
                   <span style={{ color: 'var(--brand-gold-strong)' }}>Rs. {total.toLocaleString()}</span>
+                </div>
+
+                {/* Coupon Code Section */}
+                <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e9ecef' }}>
+                  <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.95rem', color: 'var(--brand-burgundy)' }}>Have a Coupon Code?</h4>
+                  
+                  {/* Helpful coupon eligibility message */}
+                  <div style={{ 
+                    margin: '0 0 1rem', 
+                    padding: '0.75rem', 
+                    background: customer?.isLoyalty ? '#e3f2fd' : '#fff3e0', 
+                    borderLeft: `4px solid ${customer?.isLoyalty ? '#1976d2' : '#f57c00'}`,
+                    fontSize: '0.85rem',
+                    color: customer?.isLoyalty ? '#0d47a1' : '#e65100'
+                  }}>
+                    {customer?.isLoyalty && customer?.loyaltyTier ? (
+                      <>
+                        <strong>Loyalty Member:</strong> You are a {customer.loyaltyTier} tier member and can use {customer.loyaltyTier}-specific and general coupons.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Standard Customer:</strong> You can use standard offer coupons. Join our loyalty program to unlock tier-specific offers!
+                      </>
+                    )}
+                  </div>
+                  
+                  {!appliedCoupon ? (
+                    <div>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                        <input
+                          type="text"
+                          placeholder="Enter coupon code"
+                          value={couponCode}
+                          onChange={(e) => {
+                            setCouponCode(e.target.value.toUpperCase());
+                            setCouponError('');
+                          }}
+                          disabled={isValidatingCoupon}
+                          style={{
+                            flex: 1,
+                            padding: '0.6rem 0.8rem',
+                            border: couponError ? '1px solid #dc3545' : '1px solid #ddd',
+                            borderRadius: '4px',
+                            fontSize: '0.9rem',
+                            background: isValidatingCoupon ? '#f0f0f0' : 'white',
+                            cursor: isValidatingCoupon ? 'not-allowed' : 'text'
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={applyCoupon}
+                          disabled={isValidatingCoupon || !couponCode.trim()}
+                          style={{
+                            padding: '0.6rem 1rem',
+                            background: isValidatingCoupon ? '#ccc' : 'var(--brand-burgundy)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: isValidatingCoupon || !couponCode.trim() ? 'not-allowed' : 'pointer',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            whiteSpace: 'nowrap'
+                          }}
+                        >
+                          {isValidatingCoupon ? 'Checking...' : 'Apply'}
+                        </button>
+                      </div>
+                      {couponError && (
+                        <p style={{ margin: '0.5rem 0 0', color: '#dc3545', fontSize: '0.85rem' }}>
+                          <i className="fas fa-exclamation-circle" /> {couponError}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div style={{ padding: '0.75rem', background: '#d1f2eb', borderRadius: '4px', border: '1px solid #0d6655' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <span style={{ color: '#0d6655', fontWeight: 600 }}>
+                          <i className="fas fa-check-circle" /> Code Applied: {appliedCoupon.code}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={removeCoupon}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#0d6655',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem',
+                            textDecoration: 'underline'
+                          }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                      <p style={{ margin: '0', fontSize: '0.85rem', color: '#0d6655' }}>
+                        Discount: Rs. {appliedCoupon.discountAmount.toLocaleString()}
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ background: '#d1f2eb', padding: '0.8rem', borderRadius: '4px', marginBottom: '1rem', textAlign: 'center' }}>
@@ -312,14 +486,15 @@ export default function CustomerCartPage() {
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Payment Receipt / Screenshot (Optional)</label>
+                  <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>Payment Receipt / Screenshot *</label>
                   <input
                     type="file"
                     accept="image/*"
+                    required
                     onChange={(event) => handleReceiptChange(event.target.files?.[0])}
                     style={{ width: '100%', padding: '0.75rem', border: '1px solid #ddd', borderRadius: '4px' }}
                   />
-                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#666' }}>Upload a screenshot or photo of your bank transfer receipt (max 5MB). You can also submit this later.</p>
+                  <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#666' }}>Upload a screenshot or photo of your bank transfer receipt (max 5MB). This is required to complete your order.</p>
                   {receiptPreview ? (
                     <div style={{ marginTop: '0.5rem' }}>
                       <img src={receiptPreview} alt="Receipt preview" style={{ maxWidth: '200px', borderRadius: '4px', border: '1px solid #ddd' }} />
@@ -335,6 +510,20 @@ export default function CustomerCartPage() {
                 <div style={{ background: '#f8f9fa', padding: '1rem', borderRadius: '4px', marginBottom: '1.5rem' }}>
                   <h3 style={{ margin: '0 0 0.5rem', fontSize: '1rem' }}>Order Summary</h3>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
+                    <span>Subtotal:</span>
+                    <span>Rs. {subtotal.toLocaleString()}</span>
+                  </div>
+                  {appliedCoupon && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', color: '#1f7a55' }}>
+                      <span>Discount:</span>
+                      <span style={{ fontWeight: 600 }}>-Rs. {appliedCoupon.discountAmount.toLocaleString()}</span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', paddingTop: '0.5rem', borderTop: '1px solid #ddd' }}>
+                    <span>Tax (3%):</span>
+                    <span>Rs. {tax.toLocaleString()}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', fontWeight: 600, fontSize: '1.1rem' }}>
                     <span>Total Amount:</span>
                     <strong style={{ color: 'var(--brand-gold-strong)' }}>Rs. {total.toLocaleString()}</strong>
                   </div>

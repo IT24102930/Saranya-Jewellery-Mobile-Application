@@ -1,6 +1,11 @@
 // Middleware to check if user is authenticated (staff or customer)
 export const isAuthenticated = (req, res, next) => {
-  if (req.session && (req.session.staffId || req.session.customerId)) {
+  if (req.session && req.session.staffId) {
+    req.user = { id: req.session.staffId, type: 'staff' };
+    return next();
+  }
+  if (req.session && req.session.customerId) {
+    req.user = { id: req.session.customerId, type: 'customer' };
     return next();
   }
   return res.status(401).json({ message: 'Unauthorized. Please login.' });

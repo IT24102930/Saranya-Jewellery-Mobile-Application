@@ -47,6 +47,12 @@ const messageSchema = new mongoose.Schema({
     min: 0,
     max: 100
   }
+  ,
+  couponCode: {
+    type: String,
+    trim: true,
+    default: ''
+  }
 }, {
   timestamps: true  // Automatically adds createdAt and updatedAt
 });

@@ -158,7 +158,7 @@ export default function CustomerProductPage() {
 
         <div className="header-icons">
           <i className="fas fa-search header-icon" />
-          <a href={customer ? '/customer-dashboard?openProfile=true' : guestLinks.userProfileHref}><i className="fas fa-user header-icon" /></a>
+          <a href={customer ? '/customer-dashboard' : guestLinks.userProfileHref}><i className="fas fa-user header-icon" /></a>
           <a href="/customer-cart" style={{ position: 'relative' }} onClick={(event) => handleProtectedNavigate(event, getCurrentReturnPath())}>
             <i className="fas fa-shopping-cart header-icon" />
             {cartCount > 0 ? (
@@ -251,10 +251,10 @@ export default function CustomerProductPage() {
                   </div>
                   <div style={{ marginBottom: '0.4rem', color: '#e0bf63' }}>{renderStars(review.rating)}</div>
                   <p style={{ margin: 0, color: '#555', lineHeight: 1.6 }}>{review.comment || 'No comment provided.'}</p>
-                  {review.careReply?.comment ? (
+                  {review.staffReply?.reply ? (
                     <div style={{ marginTop: '0.7rem', background: '#f8f9fa', borderLeft: '3px solid #6f0022', padding: '0.65rem', borderRadius: '6px' }}>
                       <p style={{ margin: '0 0 0.3rem', fontWeight: 600, color: '#6f0022' }}>Customer Care Reply</p>
-                      <p style={{ margin: 0, color: '#555' }}>{review.careReply.comment}</p>
+                      <p style={{ margin: 0, color: '#555' }}>{review.staffReply.reply}</p>
                     </div>
                   ) : null}
                 </div>

@@ -4,6 +4,14 @@ import { isInventoryManager } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function normalizeName(name = '') {
+  return name.trim();
+}
+
+function normalizeContact(contact = '') {
+  return String(contact).replace(/\D/g, '');
+}
+
 // GET all suppliers
 router.get('/', isInventoryManager, async (req, res) => {
   try {
@@ -19,9 +27,22 @@ router.get('/', isInventoryManager, async (req, res) => {
 router.post('/', isInventoryManager, async (req, res) => {
   try {
     const { name, contact, email, location, itemsSupplied } = req.body;
+    const normalizedName = normalizeName(name);
+    const normalizedContact = normalizeContact(contact);
 
-    if (!name || !contact) {
+    if (!normalizedName || !normalizedContact) {
       return res.status(400).json({ message: 'Name and contact are required' });
+    }
+
+    if (!/^\d{10}$/.test(normalizedContact)) {
+      return res.status(400).json({ message: 'Contact number must be exactly 10 digits' });
+    }
+
+    const existingSupplier = await Supplier.findOne({
+      name: { $regex: `^${normalizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+    });
+    if (existingSupplier) {
+      return res.status(400).json({ message: 'Supplier name already exists' });
     }
 
     const supplierCount = await Supplier.countDocuments();
@@ -29,8 +50,8 @@ router.post('/', isInventoryManager, async (req, res) => {
 
     const supplier = new Supplier({
       supplierId,
-      name,
-      contact,
+      name: normalizedName,
+      contact: normalizedContact,
       email: email || '',
       location: location || '',
       itemsSupplied: itemsSupplied || ''
@@ -51,12 +72,30 @@ router.post('/', isInventoryManager, async (req, res) => {
 router.patch('/:id', isInventoryManager, async (req, res) => {
   try {
     const { name, contact, email, location, itemsSupplied } = req.body;
+    const normalizedName = normalizeName(name);
+    const normalizedContact = normalizeContact(contact);
+
+    if (!normalizedName || !normalizedContact) {
+      return res.status(400).json({ message: 'Name and contact are required' });
+    }
+
+    if (!/^\d{10}$/.test(normalizedContact)) {
+      return res.status(400).json({ message: 'Contact number must be exactly 10 digits' });
+    }
+
+    const duplicateSupplier = await Supplier.findOne({
+      _id: { $ne: req.params.id },
+      name: { $regex: `^${normalizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, $options: 'i' }
+    });
+    if (duplicateSupplier) {
+      return res.status(400).json({ message: 'Supplier name already exists' });
+    }
 
     const supplier = await Supplier.findByIdAndUpdate(
       req.params.id,
       {
-        name,
-        contact,
+        name: normalizedName,
+        contact: normalizedContact,
         email,
         location,
         itemsSupplied

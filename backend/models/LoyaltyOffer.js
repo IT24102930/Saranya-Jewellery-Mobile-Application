@@ -48,6 +48,39 @@ const loyaltyOfferSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  // Coupon code field
+  couponCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    uppercase: true,
+    trim: true
+  },
+  // Legacy coupon system fields
+  usesCouponSystem: {
+    type: Boolean,
+    default: true
+  },
+  couponPrefix: {
+    type: String,
+    default: ''
+  },
+  generatedCouponsCount: {
+    type: Number,
+    default: 0
+  },
+  redeemedCount: {
+    type: Number,
+    default: 0
+  },
+  couponsGenerated: {
+    type: Boolean,
+    default: false
+  },
+  generatedAt: {
+    type: Date,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now

@@ -2,8 +2,10 @@ import express from 'express';
 import Customer from '../models/Customer.js';
 import LoyaltyTier from '../models/LoyaltyTier.js';
 import LoyaltyOffer from '../models/LoyaltyOffer.js';
+import StandardOffer from '../models/StandardOffer.js';
+import Coupon from '../models/Coupon.js';
 import Order from '../models/Order.js';
-import { isLoyaltyManager, isApproved } from '../middleware/auth.js';
+import { isLoyaltyManager, isApproved, isCustomerCareManager } from '../middleware/auth.js';
 import emailService from '../utils/emailService.js';
 
 const router = express.Router();
@@ -295,6 +297,34 @@ router.post('/members/award-points', isLoyaltyManager, isApproved, async (req, r
   }
 });
 
+// Update loyalty member points (set to specific value)
+router.post('/members/points/:customerId', isLoyaltyManager, isApproved, async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const { points } = req.body;
+    
+    // Validate points
+    if (typeof points !== 'number' || points < 0) {
+      return res.status(400).json({ message: 'Points must be a non-negative number' });
+    }
+    
+    const customer = await Customer.findById(customerId);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    if (!customer.isLoyalty) return res.status(400).json({ message: 'Customer is not a loyalty member' });
+    
+    const previousPoints = customer.loyaltyPoints || 0;
+    customer.loyaltyPoints = points;
+    await customer.save();
+    
+    res.json({ 
+      message: `Loyalty points updated from ${previousPoints} to ${points} for ${customer.fullName}`,
+      customer 
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating loyalty points', error: error.message });
+  }
+});
+
 // ============ LOYALTY OFFERS MANAGEMENT ============
 
 // Get all offers
@@ -307,7 +337,227 @@ router.get('/offers', isLoyaltyManager, isApproved, async (req, res) => {
   }
 });
 
-// Create new offer
+// ============ STANDARD CUSTOMER OFFERS (Must come BEFORE general /offers routes) ============
+// NOTE: This section is for Customer Care Manager ONLY - sends to non-loyalty customers
+// Loyalty tier customers (Silver, Gold, Platinum) are managed separately via /offers endpoints
+// StandardOffer collection is independent from LoyaltyOffer collection
+
+// PUBLIC ROUTE - Get active standard offers for customers (no auth required)
+router.get('/offers/standard/active/list', async (req, res) => {
+  try {
+    const offers = await StandardOffer.find({
+      isActive: true,
+      $or: [
+        { validUntil: { $exists: false } },
+        { validUntil: { $gte: new Date() } }
+      ]
+    })
+    .select('title description discountPercentage discountAmount validFrom validUntil couponCode')
+    .sort({ createdAt: -1 })
+    .limit(10);
+    
+    res.json(offers);
+  } catch (error) {
+    console.error('Error fetching active standard offers:', error);
+    res.status(500).json({ message: 'Error fetching standard offers', error: error.message });
+  }
+});
+
+// Get all standard customer offers (Manager only)
+router.get('/offers/standard', isCustomerCareManager, isApproved, async (req, res) => {
+  try {
+    const offers = await StandardOffer.find().sort({ createdAt: -1 });
+    res.json(offers);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching standard offers', error: error.message });
+  }
+});
+
+// Create standard customer offer (Customer Care Manager for non-loyalty customers)
+router.post('/offers/standard/create', isCustomerCareManager, isApproved, async (req, res) => {
+  try {
+    const { 
+      title, 
+      description, 
+      discountPercentage, 
+      discountAmount, 
+      validFrom,
+      validUntil,
+      couponCode
+    } = req.body;
+    
+    if (!couponCode) {
+      return res.status(400).json({ message: 'Coupon code is required' });
+    }
+    
+    // Create offer for standard customers in StandardOffer collection
+    const offer = new StandardOffer({
+      title,
+      description,
+      discountPercentage,
+      discountAmount,
+      validFrom: new Date(validFrom),
+      validUntil: new Date(validUntil),
+      couponCode,
+      isActive: true
+    });
+    
+    await offer.save();
+    
+    // Create corresponding coupon record in Coupons collection
+    const coupon = new Coupon({
+      code: offer.couponCode,
+      offerId: offer._id,
+      assignedTier: 'Standard',
+      discountType: discountPercentage > 0 ? 'percentage' : 'fixed',
+      discountValue: discountPercentage > 0 ? discountPercentage : discountAmount,
+      validFrom: offer.validFrom,
+      validUntil: offer.validUntil,
+      maxUses: 999, // Allow unlimited uses for standard coupons
+      isActive: true
+    });
+    
+    await coupon.save();
+    
+    res.json({ message: 'Standard customer offer created successfully', offer, coupon });
+  } catch (error) {
+    res.status(500).json({ message: 'Error creating standard offer', error: error.message });
+  }
+});
+
+// Send emails to STANDARD CUSTOMERS ONLY (non-loyalty customers)
+// Auto-generates coupons targeting customers where isLoyalty=false OR loyaltyTier=null
+// Loyalty tier customers will NOT receive these emails
+router.post('/offers/standard/:id/send-coupons', isCustomerCareManager, isApproved, async (req, res) => {
+  try {
+    const offer = await StandardOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    
+    // Get all standard customers (non-loyalty customers only)
+    const customers = await Customer.find({ $or: [{ isLoyalty: false }, { loyaltyTier: null }] });
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    // Send the same coupon code to all standard customers
+    for (const customer of customers) {
+      try {
+        const emailContent = `
+          <h2>${offer.title}</h2>
+          <p>${offer.description}</p>
+          <hr/>
+          <h3>Your Exclusive Coupon Code:</h3>
+          <div style="background-color: #f0f0f0; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+            <h1 style="color: #d4af37; letter-spacing: 2px; font-weight: bold;">${offer.couponCode}</h1>
+          </div>
+          <h3>Offer Details:</h3>
+          <p><strong>Discount:</strong> ${offer.discountPercentage > 0 ? offer.discountPercentage + '%' : 'Rs. ' + offer.discountAmount} Off</p>
+          <p><strong>Valid From:</strong> ${new Date(offer.validFrom).toLocaleDateString()}</p>
+          <p><strong>Valid Until:</strong> ${new Date(offer.validUntil).toLocaleDateString()}</p>
+          <hr/>
+          <p style="color: #666;">Use this coupon code at checkout to enjoy your exclusive discount!</p>
+        `;
+        
+        await emailService.sendCustomEmail(
+          customer.email,
+          `Your Exclusive Coupon: ${offer.couponCode}`,
+          emailContent
+        );
+        
+        successCount++;
+      } catch (emailError) {
+        failCount++;
+        console.error(`Failed to send coupon to ${customer.email}:`, emailError.message);
+      }
+    }
+    
+    offer.emailSent = true;
+    offer.sentAt = new Date();
+    offer.recipientsCount = successCount;
+    await offer.save();
+    
+    res.json({ 
+      message: `Coupon sent to ${successCount} customers, ${failCount} failed`,
+      offer,
+      successCount,
+      failCount,
+      totalStandardCustomers: successCount + failCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error sending coupons', error: error.message });
+  }
+});
+
+// Update standard customer offer
+router.put('/offers/standard/:id', isCustomerCareManager, isApproved, async (req, res) => {
+  try {
+    const { 
+      title, 
+      description, 
+      discountPercentage, 
+      discountAmount, 
+      validUntil,
+      couponCode
+    } = req.body;
+
+    const offer = await StandardOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: 'Standard offer not found' });
+
+    // Update fields
+    if (title) offer.title = title;
+    if (description) offer.description = description;
+    if (discountPercentage !== undefined) offer.discountPercentage = discountPercentage;
+    if (discountAmount !== undefined) offer.discountAmount = discountAmount;
+    if (validUntil) offer.validUntil = new Date(validUntil);
+    if (couponCode) offer.couponCode = couponCode;
+    offer.updatedAt = new Date();
+
+    await offer.save();
+    
+    // Update corresponding coupon
+    await Coupon.findOneAndUpdate(
+      { offerId: req.params.id },
+      {
+        code: offer.couponCode,
+        assignedTier: 'Standard',
+        discountType: offer.discountPercentage > 0 ? 'percentage' : 'fixed',
+        discountValue: offer.discountPercentage > 0 ? offer.discountPercentage : offer.discountAmount,
+        validFrom: offer.validFrom,
+        validUntil: offer.validUntil,
+        isActive: offer.isActive
+      }
+    );
+    
+    res.json({ message: 'Standard offer updated successfully', offer });
+  } catch (error) {
+    res.status(500).json({ message: 'Error updating standard offer', error: error.message });
+  }
+});
+
+// Delete standard customer offer (also delete associated coupons)
+router.delete('/offers/standard/:id', isCustomerCareManager, isApproved, async (req, res) => {
+  try {
+    const offer = await StandardOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: 'Standard offer not found' });
+    
+    // Delete associated coupons
+    await Coupon.deleteMany({ offerId: req.params.id });
+    
+    // Delete the offer
+    await StandardOffer.findByIdAndDelete(req.params.id);
+    
+    res.json({ message: 'Standard offer and associated coupons deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error deleting standard offer', error: error.message });
+  }
+});
+
+// ============ LOYALTY OFFERS (General) ============
+// NOTE: This section is for Loyalty Manager ONLY - sends to loyalty tier customers (Silver, Gold, Platinum, All)
+// LoyaltyOffer collection is independent from StandardOffer collection
+// Only customers with loyalty tiers receive these offers
+
+// Create new offer (Loyalty Manager for loyalty customers)
 router.post('/offers', isLoyaltyManager, isApproved, async (req, res) => {
   try {
     const { 
@@ -315,8 +565,10 @@ router.post('/offers', isLoyaltyManager, isApproved, async (req, res) => {
       description, 
       tierType, 
       discountPercentage, 
-      discountAmount, 
-      validUntil 
+      discountAmount,
+      validFrom,
+      validUntil,
+      couponCode
     } = req.body;
     
     const offer = new LoyaltyOffer({
@@ -325,11 +577,29 @@ router.post('/offers', isLoyaltyManager, isApproved, async (req, res) => {
       tierType,
       discountPercentage,
       discountAmount,
-      validUntil: new Date(validUntil)
+      validFrom: validFrom ? new Date(validFrom) : new Date(),
+      validUntil: new Date(validUntil),
+      couponCode: couponCode ? couponCode.toUpperCase() : ''
     });
     
     await offer.save();
-    res.json({ message: 'Offer created successfully', offer });
+    
+    // Create corresponding coupon record
+    const coupon = new Coupon({
+      code: offer.couponCode,
+      offerId: offer._id,
+      assignedTier: tierType,
+      discountType: discountPercentage > 0 ? 'percentage' : 'fixed',
+      discountValue: discountPercentage > 0 ? discountPercentage : discountAmount,
+      validFrom: offer.validFrom,
+      validUntil: offer.validUntil,
+      maxUses: 999, // Allow unlimited uses for loyalty coupons
+      isActive: true
+    });
+    
+    await coupon.save();
+    
+    res.json({ message: 'Offer created successfully', offer, coupon });
   } catch (error) {
     res.status(500).json({ message: 'Error creating offer', error: error.message });
   }
@@ -343,8 +613,10 @@ router.put('/offers/:id', isLoyaltyManager, isApproved, async (req, res) => {
       description, 
       tierType, 
       discountPercentage, 
-      discountAmount, 
+      discountAmount,
+      validFrom,
       validUntil,
+      couponCode,
       isActive 
     } = req.body;
     
@@ -356,7 +628,9 @@ router.put('/offers/:id', isLoyaltyManager, isApproved, async (req, res) => {
         tierType,
         discountPercentage,
         discountAmount,
+        validFrom: validFrom ? new Date(validFrom) : undefined,
         validUntil: validUntil ? new Date(validUntil) : undefined,
+        couponCode: couponCode ? couponCode.toUpperCase() : undefined,
         isActive,
         updatedAt: new Date()
       },
@@ -364,6 +638,21 @@ router.put('/offers/:id', isLoyaltyManager, isApproved, async (req, res) => {
     );
     
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    
+    // Update corresponding coupon
+    await Coupon.findOneAndUpdate(
+      { offerId: req.params.id },
+      {
+        code: offer.couponCode,
+        assignedTier: offer.tierType,
+        discountType: offer.discountPercentage > 0 ? 'percentage' : 'fixed',
+        discountValue: offer.discountPercentage > 0 ? offer.discountPercentage : offer.discountAmount,
+        validFrom: offer.validFrom,
+        validUntil: offer.validUntil,
+        isActive: offer.isActive
+      }
+    );
+    
     res.json({ message: 'Offer updated successfully', offer });
   } catch (error) {
     res.status(500).json({ message: 'Error updating offer', error: error.message });
@@ -375,6 +664,10 @@ router.delete('/offers/:id', isLoyaltyManager, isApproved, async (req, res) => {
   try {
     const offer = await LoyaltyOffer.findByIdAndDelete(req.params.id);
     if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    
+    // Cascade delete the corresponding coupon
+    await Coupon.deleteOne({ offerId: req.params.id });
+    
     res.json({ message: 'Offer deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Error deleting offer', error: error.message });
@@ -478,5 +771,241 @@ router.get('/dashboard/stats', isLoyaltyManager, isApproved, async (req, res) =>
     res.status(500).json({ message: 'Error fetching stats', error: error.message });
   }
 });
+// ============ COUPON MANAGEMENT ============
+
+// Generate coupons for an offer
+router.post('/offers/:id/generate-coupons', isLoyaltyManager, isApproved, async (req, res) => {
+  try {
+    const { couponPrefix } = req.body;
+    const offer = await LoyaltyOffer.findById(req.params.id);
+    
+    if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    if (offer.couponsGenerated) {
+      return res.status(400).json({ message: 'Coupons already generated for this offer' });
+    }
+    
+    // Get eligible customers based on tier
+    let query = { isLoyalty: true };
+    if (offer.tierType !== 'All') {
+      query.loyaltyTier = offer.tierType;
+    }
+    
+    const customers = await Customer.find(query);
+    if (customers.length === 0) {
+      return res.status(400).json({ message: 'No eligible loyal customers found for this offer tier' });
+    }
+    
+    let generatedCount = 0;
+    const coupons = [];
+    
+    for (let i = 0; i < customers.length; i++) {
+      const customer = customers[i];
+      const code = `${couponPrefix}${offer._id.toString().slice(-6).toUpperCase()}${String(i + 1).padStart(4, '0')}`;
+      
+      const coupon = new Coupon({
+        code,
+        offerId: offer._id,
+        customerId: customer._id,
+        assignedTier: customer.loyaltyTier || offer.tierType,
+        discountType: offer.discountPercentage > 0 ? 'percentage' : 'fixed',
+        discountValue: offer.discountPercentage > 0 ? offer.discountPercentage : offer.discountAmount,
+        validFrom: offer.validFrom,
+        validUntil: offer.validUntil
+      });
+      
+      await coupon.save();
+      coupons.push(coupon);
+      generatedCount++;
+    }
+    
+    // Update offer
+    offer.usesCouponSystem = true;
+    offer.couponPrefix = couponPrefix;
+    offer.generatedCouponsCount = generatedCount;
+    offer.couponsGenerated = true;
+    offer.generatedAt = new Date();
+    await offer.save();
+    
+    res.json({ 
+      message: `Generated ${generatedCount} coupons for offer`,
+      offer,
+      generatedCount,
+      couponsGenerated: coupons.length
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error generating coupons', error: error.message });
+  }
+});
+
+// Send coupons via email
+router.post('/offers/:id/send-coupons', isLoyaltyManager, isApproved, async (req, res) => {
+  try {
+    const offer = await LoyaltyOffer.findById(req.params.id);
+    if (!offer) return res.status(404).json({ message: 'Offer not found' });
+    if (!offer.couponCode) {
+      return res.status(400).json({ message: 'Coupon code is required. Please add a coupon code to this offer.' });
+    }
+    
+    // Get eligible customers based on tier
+    let query = { isLoyalty: true };
+    if (offer.tierType !== 'All') {
+      query.loyaltyTier = offer.tierType;
+    }
+    
+    const customers = await Customer.find(query);
+    
+    if (customers.length === 0) {
+      return res.status(400).json({ message: 'No eligible loyal customers found for this offer tier' });
+    }
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const customer of customers) {
+      if (!customer.email) {
+        failCount++;
+        console.error(`Skipping customer ${customer._id}: No email found`);
+        continue;
+      }
+      
+      try {
+        const emailContent = `
+          <h2>${offer.title}</h2>
+          <p>${offer.description}</p>
+          <hr/>
+          <h3>Your Exclusive Coupon Code:</h3>
+          <div style="background-color: #f0f0f0; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
+            <h1 style="color: #d4af37; letter-spacing: 2px; font-weight: bold;">${offer.couponCode}</h1>
+          </div>
+          <h3>Offer Details:</h3>
+          <p><strong>Discount:</strong> ${offer.discountPercentage > 0 ? offer.discountPercentage + '%' : 'LKR ' + offer.discountAmount} Off</p>
+          <p><strong>Valid From:</strong> ${new Date(offer.validFrom).toLocaleDateString()}</p>
+          <p><strong>Valid Until:</strong> ${new Date(offer.validUntil).toLocaleDateString()}</p>
+          <p><strong>Loyalty Tier:</strong> ${offer.tierType}</p>
+          <hr/>
+          <p style="color: #666;">Use this coupon code at checkout to enjoy your exclusive discount!</p>
+        `;
+        
+        const emailResult = await emailService.sendCustomEmail(
+          customer.email,
+          `Your Exclusive Offer: ${offer.title}`,
+          emailContent
+        );
+        
+        if (!emailResult.success) {
+          failCount++;
+          console.error(`Failed to send email to ${customer.email}:`, emailResult.error);
+          continue;
+        }
+        
+        successCount++;
+      } catch (emailError) {
+        failCount++;
+        console.error(`Failed to send email to ${customer.email}:`, emailError.message);
+      }
+    }
+    
+    offer.emailSent = true;
+    offer.sentAt = new Date();
+    offer.recipientsCount = successCount;
+    await offer.save();
+    
+    res.json({ 
+      message: `Emails sent to ${successCount} customers, ${failCount} failed`,
+      offer,
+      successCount,
+      failCount
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error sending coupons', error: error.message });
+  }
+});
+
+// Validate and redeem coupon
+router.post('/coupons/validate', async (req, res) => {
+  try {
+    const { code, customerId } = req.body;
+    
+    const coupon = await Coupon.findOne({ code: code.toUpperCase() });
+    if (!coupon) return res.status(404).json({ message: 'Coupon not found', valid: false });
+    
+    // Check if coupon is active
+    if (!coupon.isActive) {
+      return res.status(400).json({ message: 'This coupon is no longer active', valid: false });
+    }
+    
+    // Check validity period
+    const now = new Date();
+    if (now < coupon.validFrom || now > coupon.validUntil) {
+      return res.status(400).json({ message: 'This coupon is not valid for this period', valid: false });
+    }
+    
+    // Check usage limit
+    if (coupon.usageCount >= coupon.maxUses) {
+      return res.status(400).json({ message: 'This coupon has reached its usage limit', valid: false });
+    }
+    
+    // Check if customer ID matches (if coupon is assigned to specific customer)
+    if (coupon.customerId && coupon.customerId.toString() !== customerId) {
+      return res.status(400).json({ message: 'This coupon is not assigned to your account', valid: false });
+    }
+
+    // Check customer tier eligibility
+    const customer = await Customer.findById(customerId);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found', valid: false });
+    }
+
+    // Determine customer type and check tier eligibility
+    let customerTier = 'Standard'; // Default to standard customers
+    if (customer.isLoyalty && customer.loyaltyTier) {
+      customerTier = customer.loyaltyTier; // Silver, Gold, or Platinum
+    }
+
+    // Check if coupon tier matches customer tier (or if coupon is for 'All')
+    if (coupon.assignedTier !== 'All' && coupon.assignedTier !== customerTier) {
+      const tierName = coupon.assignedTier === 'Standard' 
+        ? 'standard customers' 
+        : `${coupon.assignedTier} tier loyalty members`;
+      return res.status(403).json({ 
+        message: `This coupon is only available for ${tierName}. You are a ${customerTier === 'Standard' ? 'standard' : customerTier + ' tier'} customer.`, 
+        valid: false,
+        requiredTier: coupon.assignedTier,
+        customerTier: customerTier
+      });
+    }
+    
+    res.json({ 
+      valid: true,
+      coupon: {
+        code: coupon.code,
+        discountType: coupon.discountType,
+        discountValue: coupon.discountValue,
+        minOrderAmount: coupon.minOrderAmount,
+        message: 'Coupon is valid!'
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: 'Error validating coupon', error: error.message });
+  }
+});
+
+// Get coupons for a customer
+router.get('/coupons/customer/:customerId', async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    
+    const coupons = await Coupon.find({
+      customerId,
+      isActive: true,
+      validUntil: { $gte: new Date() }
+    }).populate('offerId');
+    
+    res.json(coupons);
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching coupons', error: error.message });
+  }
+});
+
 
 export default router;

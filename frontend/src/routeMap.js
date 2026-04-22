@@ -8,6 +8,7 @@ export const routeMap = {
   '/customer-orders': 'customer-orders',
   '/customer-product': 'customer-product',
   '/customer-register': 'customer-register',
+  '/customer-reset-password': 'customer-reset-password',
   '/customer-shop': 'customer-shop',
   '/customer-support': 'customer-support',
   '/': 'home',

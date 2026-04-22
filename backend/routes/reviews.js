@@ -5,22 +5,40 @@ import { isAuthenticated, hasRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Public: Get approved reviews for a product
+// Public: Get approved reviews for a product + customer's own pending reviews
 router.get('/product/:productId', async (req, res) => {
   try {
-    const reviews = await Review.find({
-      productId: req.params.productId,
+    const productId = req.params.productId;
+    const customerId = req.session?.customerId;
+
+    // Get all approved reviews
+    const approvedReviews = await Review.find({
+      productId,
       status: 'approved'
     })
     .populate('customerId', 'fullName')
-    .sort({ createdAt: -1 })
-    .limit(20);
+    .sort({ createdAt: -1 });
 
-    const avgRating = reviews.length > 0
-      ? (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1)
+    // If customer is logged in, also get their pending/rejected reviews for this product
+    let customerReviews = [];
+    if (customerId) {
+      customerReviews = await Review.find({
+        productId,
+        customerId,
+        status: { $in: ['pending', 'rejected'] }
+      })
+      .populate('customerId', 'fullName')
+      .sort({ createdAt: -1 });
+    }
+
+    // Combine reviews (approved first, then customer's own pending)
+    const allReviews = [...approvedReviews, ...customerReviews];
+
+    const avgRating = approvedReviews.length > 0
+      ? (approvedReviews.reduce((sum, r) => sum + r.rating, 0) / approvedReviews.length).toFixed(1)
       : 0;
 
-    res.json({ reviews, avgRating, totalReviews: reviews.length });
+    res.json({ reviews: allReviews, avgRating, totalReviews: approvedReviews.length });
   } catch (error) {
     console.error('Error fetching reviews:', error);
     res.status(500).json({ message: 'Error fetching reviews' });
@@ -30,9 +48,9 @@ router.get('/product/:productId', async (req, res) => {
 // Customer: Submit a review
 router.post('/', isAuthenticated, async (req, res) => {
   try {
-    const { productId, rating, title, comment } = req.body;
+    const { orderId, productId, rating, title, comment } = req.body;
 
-    if (!productId || !rating || !title || !comment) {
+    if (!orderId || !productId || !rating || !title || !comment) {
       return res.status(400).json({ message: 'Missing required fields' });
     }
 
@@ -42,9 +60,10 @@ router.post('/', isAuthenticated, async (req, res) => {
     }
 
     const review = new Review({
+      orderId,
       productId,
       productName: product.name,
-      customerId: req.session.userId,
+      customerId: req.session.customerId,
       customerName: req.session.fullName || 'Anonymous',
       customerEmail: req.session.email,
       rating,
@@ -58,6 +77,21 @@ router.post('/', isAuthenticated, async (req, res) => {
   } catch (error) {
     console.error('Error creating review:', error);
     res.status(500).json({ message: 'Error creating review' });
+  }
+});
+
+// Customer: Get their own reviews
+router.get('/my/reviews', isAuthenticated, async (req, res) => {
+  try {
+    const customerId = req.session.customerId;
+
+    const reviews = await Review.find({ customerId })
+      .sort({ createdAt: -1 });
+
+    res.json({ reviews });
+  } catch (error) {
+    console.error('Error fetching customer reviews:', error);
+    res.status(500).json({ message: 'Error fetching reviews' });
   }
 });
 
@@ -101,7 +135,7 @@ router.patch('/:reviewId/status', isAuthenticated, hasRole('Customer Care', 'Adm
         status,
         ...(staffReply && {
           'staffReply.reply': staffReply,
-          'staffReply.repliedBy': req.session.userId,
+          'staffReply.repliedBy': req.session.staffId,
           'staffReply.repliedAt': new Date()
         })
       },
@@ -143,7 +177,7 @@ router.post('/:reviewId/reply', isAuthenticated, hasRole('Customer Care', 'Admin
       req.params.reviewId,
       {
         'staffReply.reply': reply,
-        'staffReply.repliedBy': req.session.userId,
+        'staffReply.repliedBy': req.session.staffId,
         'staffReply.repliedAt': new Date()
       },
       { new: true }
@@ -155,6 +189,89 @@ router.post('/:reviewId/reply', isAuthenticated, hasRole('Customer Care', 'Admin
   } catch (error) {
     console.error('Error replying to review:', error);
     res.status(500).json({ message: 'Error replying to review' });
+  }
+});
+
+// Customer: Get eligible items for review (completed orders)
+router.get('/customer/eligible-items', isAuthenticated, async (req, res) => {
+  try {
+    const customerId = req.session.customerId;
+
+    // Import Order model
+    const Order = (await import('../models/Order.js')).default;
+
+    // Get completed orders for this customer (status: 'Completed' or 'Ready for Collection')
+    const completedOrders = await Order.find({
+      customerId,
+      status: { $in: ['Completed', 'Ready for Collection'] }
+    })
+    .sort({ createdAt: -1 });
+
+    // Flatten items and get existing reviews
+    const eligibleItems = [];
+    for (const order of completedOrders) {
+      for (const item of order.items) {
+        const existingReview = await Review.findOne({
+          customerId,
+          productId: item.productId,
+          orderId: order._id
+        });
+
+        eligibleItems.push({
+          orderId: order._id,
+          orderNumber: order.orderNumber,
+          orderDate: order.createdAt,
+          orderStatus: order.status,
+          productId: item.productId,
+          productName: item.name,
+          productImage: item.imageUrl,
+          review: existingReview
+        });
+      }
+    }
+
+    res.json(eligibleItems);
+  } catch (error) {
+    console.error('Error fetching eligible items:', error);
+    res.status(500).json({ message: 'Error fetching eligible items' });
+  }
+});
+
+// Public: Get review summary for multiple products
+router.get('/summary', async (req, res) => {
+  try {
+    const { productIds } = req.query;
+    if (!productIds) {
+      return res.status(400).json({ message: 'Product IDs required' });
+    }
+
+    const ids = String(productIds).split(',').filter(id => id.trim());
+    const summary = {};
+
+    for (const productId of ids) {
+      const reviews = await Review.find({
+        productId,
+        status: 'approved'
+      });
+
+      if (reviews.length > 0) {
+        const avgRating = (reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length).toFixed(1);
+        summary[productId] = {
+          avgRating: Number(avgRating),
+          totalReviews: reviews.length
+        };
+      } else {
+        summary[productId] = {
+          avgRating: 0,
+          totalReviews: 0
+        };
+      }
+    }
+
+    res.json({ summary });
+  } catch (error) {
+    console.error('Error fetching review summary:', error);
+    res.status(500).json({ message: 'Error fetching review summary' });
   }
 });
 

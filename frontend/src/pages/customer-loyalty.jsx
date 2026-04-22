@@ -66,7 +66,7 @@ export default function CustomerLoyaltyPage() {
             className="fas fa-user header-icon"
             style={{ cursor: 'pointer' }}
             onClick={() => {
-              window.location.href = '/customer-dashboard?openProfile=true';
+              window.location.href = '/customer-dashboard';
             }}
           />
           <a href="/customer-cart" style={{ position: 'relative' }}>

@@ -16,6 +16,18 @@ const goldRateSchema = new mongoose.Schema({
     required: true,
     min: 0
   },
+  previous18K: {
+    type: Number,
+    default: 0
+  },
+  previous22K: {
+    type: Number,
+    default: 0
+  },
+  previous24K: {
+    type: Number,
+    default: 0
+  },
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Staff'

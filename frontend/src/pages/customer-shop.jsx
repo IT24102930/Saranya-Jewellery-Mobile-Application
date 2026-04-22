@@ -197,7 +197,7 @@ export default function CustomerShopPage() {
 
         <div className="header-icons">
           <i className="fas fa-search header-icon" />
-          <a href={customer ? '/customer-dashboard?openProfile=true' : `/customer-login?redirect=${returnTo}`}>
+          <a href={customer ? '/customer-dashboard' : `/customer-login?redirect=${returnTo}`}>
             <i className="fas fa-user header-icon" />
           </a>
           <a
@@ -324,21 +324,19 @@ export default function CustomerShopPage() {
                         alt={product.name}
                         style={{ width: '100%', height: '250px', objectFit: 'cover', borderRadius: '4px' }}
                       />
-                      <h3 style={{ margin: '1rem 0 0.5rem', color: 'var(--brand-burgundy)' }}>{product.name}</h3>
+                      <div style={{ margin: '1rem 0 0.5rem', color: 'var(--brand-burgundy)', fontSize: '1.2rem', fontWeight: 600 }}>
+                        {product.name}
+                      </div>
                       <p style={{ color: '#666', fontSize: '0.9rem', margin: '0.5rem 0' }}>
                         {product.category} - {product.karat}
                       </p>
 
-                      {hasReviews ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0.35rem 0 0.5rem' }}>
-                          <span style={{ color: '#e0bf63', fontSize: '0.95rem' }}>{renderStars(summary.avgRating)}</span>
-                          <span style={{ fontSize: '0.82rem', color: '#666' }}>
-                            {Number(summary.avgRating || 0).toFixed(1)} ({summary.totalReviews})
-                          </span>
-                        </div>
-                      ) : (
-                        <p style={{ fontSize: '0.82rem', color: '#999', margin: '0.35rem 0 0.5rem' }}>No reviews yet</p>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0.35rem 0 0.5rem' }}>
+                        <span style={{ color: '#e0bf63', fontSize: '0.95rem' }}>{renderStars(summary.avgRating)}</span>
+                        <span style={{ fontSize: '0.82rem', color: '#666' }}>
+                          {hasReviews ? `${Number(summary.avgRating || 0).toFixed(1)} (${summary.totalReviews})` : 'No reviews'}
+                        </span>
+                      </div>
 
                       <p style={{ color: 'var(--brand-gold-strong)', fontWeight: 600, fontSize: '1.1rem', margin: '0.5rem 0' }}>
                         Rs. {product.price?.toLocaleString() || 'N/A'}
