@@ -4,6 +4,7 @@ import authManager from '../auth.js';
 export default function CustomerCartPage() {
   const [customer, setCustomer] = useState(null);
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('saranyaCart') || '[]'));
+  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 768 : false));
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [receiptFile, setReceiptFile] = useState(null);
@@ -29,6 +30,16 @@ export default function CustomerCartPage() {
     }
 
     bootstrap();
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobileView(window.innerWidth < 768);
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   const itemCount = useMemo(
@@ -274,10 +285,10 @@ export default function CustomerCartPage() {
       </header>
 
       <main>
-        <div className="container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
+        <div className="container" style={{ padding: isMobileView ? '1rem' : '2rem', maxWidth: '1200px', margin: '0 auto' }}>
           <h1 style={{ textAlign: 'center', marginBottom: '2rem', fontFamily: "'Cormorant Garamond', serif", color: 'var(--brand-burgundy)' }}>Shopping Cart</h1>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr' : '2fr 1fr', gap: isMobileView ? '1rem' : '2rem' }}>
             <div>
               {!cart.length ? (
                 <div style={{ textAlign: 'center', padding: '3rem', background: 'white', borderRadius: '8px' }}>
@@ -289,15 +300,15 @@ export default function CustomerCartPage() {
                 </div>
               ) : (
                 cart.map((item, index) => (
-                  <div key={`${item.productId}-${index}`} style={{ background: 'white', padding: '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '1rem', display: 'flex', gap: '1.5rem' }}>
-                    <img src={item.imageUrl || '/SaranyaLOGO.jpg'} alt={item.name} style={{ width: '120px', height: '120px', objectFit: 'cover', borderRadius: '4px' }} />
+                  <div key={`${item.productId}-${index}`} style={{ background: 'white', padding: isMobileView ? '1rem' : '1.5rem', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '1rem', display: 'flex', flexDirection: isMobileView ? 'column' : 'row', gap: isMobileView ? '1rem' : '1.5rem' }}>
+                    <img src={item.imageUrl || '/SaranyaLOGO.jpg'} alt={item.name} style={{ width: isMobileView ? '100%' : '120px', height: isMobileView ? '180px' : '120px', objectFit: 'cover', borderRadius: '4px' }} />
 
                     <div style={{ flex: 1 }}>
                       <h3 style={{ margin: '0 0 0.5rem', color: 'var(--brand-burgundy)' }}>{item.name}</h3>
                       <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>{item.category} - {item.karat}</p>
                       <p style={{ color: 'var(--brand-gold-strong)', fontWeight: 600, fontSize: '1.1rem', margin: '0.5rem 0' }}>Rs. {Number(item.price || 0).toLocaleString()}</p>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '1rem', flexWrap: isMobileView ? 'wrap' : 'nowrap' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <button type="button" onClick={() => updateQuantity(index, -1)} style={{ background: '#f0f0f0', border: 'none', padding: '0.5rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '1rem' }}>-</button>
                           <span style={{ padding: '0 1rem', fontWeight: 600 }}>{item.quantity}</span>
@@ -310,7 +321,7 @@ export default function CustomerCartPage() {
                       </div>
                     </div>
 
-                    <div style={{ textAlign: 'right' }}>
+                    <div style={{ textAlign: isMobileView ? 'left' : 'right' }}>
                       <p style={{ fontWeight: 600, fontSize: '1.2rem', color: 'var(--brand-burgundy)', margin: 0 }}>Rs. {Number(item.price * item.quantity || 0).toLocaleString()}</p>
                     </div>
                   </div>
@@ -319,7 +330,7 @@ export default function CustomerCartPage() {
             </div>
 
             <div>
-              <div style={{ background: 'white', padding: '2rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', position: 'sticky', top: '2rem' }}>
+              <div style={{ background: 'white', padding: isMobileView ? '1rem' : '2rem', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', position: isMobileView ? 'static' : 'sticky', top: isMobileView ? 'auto' : '2rem' }}>
                 <h2 style={{ margin: '0 0 1.5rem', fontFamily: "'Cormorant Garamond', serif", color: 'var(--brand-burgundy)' }}>Order Summary</h2>
 
                 <div style={{ marginBottom: '1rem', paddingBottom: '1rem', borderBottom: '1px solid #eee' }}>
@@ -370,7 +381,7 @@ export default function CustomerCartPage() {
                   
                   {!appliedCoupon ? (
                     <div>
-                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', flexDirection: isMobileView ? 'column' : 'row' }}>
                         <input
                           type="text"
                           placeholder="Enter coupon code"
@@ -461,9 +472,9 @@ export default function CustomerCartPage() {
       </main>
 
       {isCheckoutOpen ? (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', padding: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '8px', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <div style={{ padding: '2rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: isMobileView ? 'flex-start' : 'center', justifyContent: 'center', overflowY: 'auto', padding: isMobileView ? '0.75rem' : '2rem' }}>
+          <div style={{ background: 'white', borderRadius: '8px', maxWidth: '600px', width: '100%', maxHeight: isMobileView ? '96vh' : '90vh', overflowY: 'auto', position: 'relative' }}>
+            <div style={{ padding: isMobileView ? '1rem' : '2rem' }}>
               <h2 style={{ margin: '0 0 1.5rem', fontFamily: "'Cormorant Garamond', serif", color: 'var(--brand-burgundy)' }}>Checkout</h2>
 
               <div style={{ background: '#d1f2eb', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'center' }}>
@@ -529,7 +540,7 @@ export default function CustomerCartPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1rem' }}>
+                <div style={{ display: 'flex', gap: '1rem', flexDirection: isMobileView ? 'column' : 'row' }}>
                   <button type="button" onClick={() => setIsCheckoutOpen(false)} style={{ flex: 1, background: '#6c757d', color: 'white', border: 'none', padding: '1rem', borderRadius: '4px', cursor: 'pointer' }}>
                     Cancel
                   </button>

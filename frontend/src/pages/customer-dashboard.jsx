@@ -388,6 +388,49 @@ export default function CustomerDashboardPage() {
             <p>Discover our latest collections and manage your orders</p>
           </div>
 
+          <div style={{
+            background: '#fff',
+            border: '1px solid #e5e7eb',
+            borderRadius: '10px',
+            padding: '1rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            gap: '0.75rem',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end'
+          }}>
+            <button
+              type="button"
+              onClick={openProfile}
+              style={{
+                background: '#6c757d',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.65rem 1rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Edit Account
+            </button>
+            <button
+              type="button"
+              onClick={logout}
+              style={{
+                background: '#dc3545',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '0.65rem 1rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Logout
+            </button>
+          </div>
+
           <div className="stats-grid">
             <div className="stat-card">
               <div className="stat-icon"><i className="fas fa-box" /></div>
@@ -645,6 +688,7 @@ export default function CustomerDashboardPage() {
               )}
             </div>
           </div>
+
         </div>
       </main>
 

@@ -301,7 +301,7 @@ export default function App() {
             </Pressable>
 
             <Pressable style={styles.secondaryCard} onPress={() => openProfileLogin(STAFF_LOGIN_ROUTE, 'Staff Login')}>
-              <Text style={styles.cardTitle}>Staff Login</Text>
+              <Text style={styles.secondaryCardTitle}>Staff Login</Text>
               <Text style={styles.secondaryCardText}>Open staff sign in for dashboard, inventory, and order management.</Text>
             </Pressable>
           </ScrollView>
@@ -368,7 +368,7 @@ export default function App() {
             compact
           />
           <NavButton
-            label="Search"
+            label="Shop"
             active={activeTab === TAB_SEARCH && !isProfileScreen}
             onPress={() => openTab(TAB_SEARCH)}
             icon="search"
@@ -514,6 +514,12 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     color: '#ffffff',
+    marginBottom: 8,
+  },
+  secondaryCardTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
     marginBottom: 8,
   },
   cardText: {
