@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import authManager from '../auth.js';
-import { FiUsers, FiSettings, FiGift, FiLogOut, FiStar, FiTrendingUp, FiPlus, FiEdit2, FiList, FiMail, FiTrash2, FiLoader } from 'react-icons/fi';
+import { FiUsers, FiSettings, FiGift, FiLogOut, FiStar, FiTrendingUp, FiPlus, FiEdit2, FiList, FiMail, FiTrash2, FiLoader, FiMenu, FiX } from 'react-icons/fi';
 
 // Add CSS animation for loading spinner
 const style = document.createElement('style');
@@ -45,6 +45,8 @@ export default function LoyaltyManagementDashboardPage() {
   const [editingPointsId, setEditingPointsId] = useState(null);
   const [editingPointsValue, setEditingPointsValue] = useState('');
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
 
   const navItems = [
     { key: 'memberAnalysis', icon: FiUsers, label: 'Member Analysis' },
@@ -84,6 +86,37 @@ export default function LoyaltyManagementDashboardPage() {
     }
     bootstrap();
   }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      const mobile = window.innerWidth < 1024;
+      setIsMobileView(mobile);
+      if (!mobile) {
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileView || !isMobileNavOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileNavOpen, isMobileView]);
+
+  useEffect(() => {
+    if (isMobileView) {
+      setIsMobileNavOpen(false);
+    }
+  }, [activeSection, isMobileView]);
 
   async function loadTiers() {
     setError('');
@@ -345,7 +378,46 @@ export default function LoyaltyManagementDashboardPage() {
   const enrollmentPct = members.length > 0 ? Math.round((loyaltyMembers.length / members.length) * 100) : 0;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc', position: 'relative' }}>
+      {isMobileView && (
+        <button
+          type="button"
+          onClick={() => setIsMobileNavOpen((prev) => !prev)}
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            left: '1rem',
+            zIndex: 220,
+            border: 'none',
+            background: '#6f0022',
+            color: '#fff',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
+            cursor: 'pointer'
+          }}
+          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        >
+          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+        </button>
+      )}
+
+      {isMobileView && isMobileNavOpen && (
+        <div
+          onClick={() => setIsMobileNavOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(23, 12, 18, 0.45)',
+            zIndex: 140
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <aside style={{
         width: '320px',
@@ -357,7 +429,10 @@ export default function LoyaltyManagementDashboardPage() {
         height: '100vh',
         left: 0,
         top: 0,
-        zIndex: 100
+        zIndex: 200,
+        transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
+        transition: 'transform 0.25s ease',
+        boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
       }}>
         {/* Sidebar Header */}
         <div style={{
@@ -395,7 +470,12 @@ export default function LoyaltyManagementDashboardPage() {
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => setActiveSection(item.key)}
+                  onClick={() => {
+                    setActiveSection(item.key);
+                    if (isMobileView) {
+                      setIsMobileNavOpen(false);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -495,8 +575,8 @@ export default function LoyaltyManagementDashboardPage() {
       {/* Main Content */}
       <main style={{
         flex: 1,
-        marginLeft: '320px',
-        padding: '2rem',
+        marginLeft: isMobileView ? 0 : '320px',
+        padding: isMobileView ? '5rem 1rem 1.25rem' : '2rem',
         overflowY: 'auto'
       }}>
         {activeSection === 'memberAnalysis' && (

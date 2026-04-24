@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import authManager from '../auth.js';
-import { FiBarChart2, FiGift, FiMessageCircle, FiStar, FiLogOut, FiCalendar } from 'react-icons/fi';
+import { FiBarChart2, FiGift, FiMessageCircle, FiStar, FiLogOut, FiCalendar, FiMenu, FiX } from 'react-icons/fi';
 
 const DASHBOARD_LINKS = [
   { href: '/customer-care-dashboard', label: 'Messages' },
@@ -45,6 +45,8 @@ export default function CustomerCareDashboardPage() {
   const [staffUser, setStaffUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'offers', 'messages', 'reviews'
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
   
   // Dashboard Overview state
   const [dashboardStats, setDashboardStats] = useState({
@@ -113,6 +115,37 @@ export default function CustomerCareDashboardPage() {
     }
     bootstrap();
   }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      const mobile = window.innerWidth < 1024;
+      setIsMobileView(mobile);
+      if (!mobile) {
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileView || !isMobileNavOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileNavOpen, isMobileView]);
+
+  useEffect(() => {
+    if (isMobileView) {
+      setIsMobileNavOpen(false);
+    }
+  }, [activeTab, isMobileView]);
 
   // Auto-refresh appointment slots every 30 seconds to reflect customer bookings
   useEffect(() => {
@@ -190,7 +223,7 @@ export default function CustomerCareDashboardPage() {
 
       // Keep a lightweight recent activity and top questions using available data
       const recentActivities = [];
-      const topViewedQuestions = [];
+      let topViewedQuestions = [];
       
       // Load recent promotional offers for activity feed
       try {
@@ -737,7 +770,46 @@ export default function CustomerCareDashboardPage() {
   if (!staffUser) return <p style={{ padding: '1rem' }}>Checking customer care access...</p>;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#470012" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#470012", position: 'relative' }}>
+      {isMobileView && (
+        <button
+          type="button"
+          onClick={() => setIsMobileNavOpen((prev) => !prev)}
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            left: '1rem',
+            zIndex: 220,
+            border: 'none',
+            background: '#6f0022',
+            color: '#fff',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
+            cursor: 'pointer'
+          }}
+          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        >
+          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+        </button>
+      )}
+
+      {isMobileView && isMobileNavOpen && (
+        <div
+          onClick={() => setIsMobileNavOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(23, 12, 18, 0.45)',
+            zIndex: 140
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <aside
         style={{
@@ -750,7 +822,10 @@ export default function CustomerCareDashboardPage() {
           height: "100vh",
           left: 0,
           top: 0,
-          zIndex: 100,
+          zIndex: 200,
+          transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
+          transition: 'transform 0.25s ease',
+          boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
         }}
       >
         {/* Sidebar Header */}
@@ -815,7 +890,12 @@ export default function CustomerCareDashboardPage() {
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (isMobileView) {
+                      setIsMobileNavOpen(false);
+                    }
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -926,13 +1006,13 @@ export default function CustomerCareDashboardPage() {
       <main
         style={{
           flex: 1,
-          marginLeft: "320px",
+          marginLeft: isMobileView ? 0 : "320px",
           overflow: "auto",
-          padding: "2rem",
+          padding: isMobileView ? "4.75rem 0.9rem 1rem" : "2rem",
           backgroundImage: "url('/jewelry-bg.jpg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
-          backgroundAttachment: "fixed",
+          backgroundAttachment: isMobileView ? "scroll" : "fixed",
           position: "relative",
         }}
       >
@@ -941,7 +1021,7 @@ export default function CustomerCareDashboardPage() {
           style={{
             position: "fixed",
             top: 0,
-            left: "320px",
+            left: isMobileView ? 0 : "320px",
             right: 0,
             bottom: 0,
             background: "rgba(0, 0, 0, 0.75)",

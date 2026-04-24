@@ -83,6 +83,47 @@ npm run dev
 
 Frontend will be available on `http://localhost:5173`
 
+## Run In Expo Go (Mobile, Same Wi-Fi)
+
+The repository now includes a mobile wrapper app in `mobile/` built with Expo and WebView.
+
+### 1. Start the website for LAN access
+
+From `frontend/`, run:
+
+```bash
+npm run dev -- --host
+```
+
+This exposes Vite on your local network (default port `5173`).
+
+### 2. Start Expo
+
+From project root, run:
+
+```bash
+npm run mobile:start
+```
+
+Then scan the QR code in Expo Go.
+
+### 3. Splash behavior
+
+- Splash image: `mobile/assets/splash.jpg` (copied from `frontend/public/SaranyaLOGO.jpg`)
+- Duration: 2 seconds before WebView opens the website
+
+### 4. URL resolution
+
+By default, the app auto-detects your computer LAN IP from Expo and opens:
+
+`http://<your-lan-ip>:5173`
+
+If needed, override manually:
+
+```bash
+EXPO_PUBLIC_WEB_URL=http://192.168.1.10:5173 npm run mobile:start
+```
+
 ## Project Structure
 
 ```

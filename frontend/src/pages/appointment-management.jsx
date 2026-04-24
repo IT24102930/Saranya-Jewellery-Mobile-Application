@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import '../styles.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const defaultApiBase =
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+    ? 'http://localhost:3000/api'
+    : `http://${window.location.hostname}:3000/api`;
+
+const API_URL = import.meta.env.VITE_API_URL || defaultApiBase;
 
 export default function AppointmentManagement() {
   const [slots, setSlots] = useState([]);

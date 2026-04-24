@@ -9,6 +9,25 @@ class AuthManager {
   }
 
   /**
+   * Resolve the backend base URL for local and LAN use.
+   * On a phone, window.location.origin points at the frontend app, so API calls
+   * must be redirected to the backend host explicitly.
+   */
+  getApiBaseUrl() {
+    if (typeof window !== 'undefined' && window.location?.hostname) {
+      const hostname = window.location.hostname;
+
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+      }
+
+      return import.meta.env.VITE_API_BASE_URL || `http://${hostname}:3000`;
+    }
+
+    return import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  }
+
+  /**
    * Build a safe same-origin return path for post-login navigation
    */
   getCurrentPathWithQuery() {
@@ -20,11 +39,7 @@ class AuthManager {
    * Make authenticated API request with credentials
    */
   async apiRequest(url, options = {}) {
-    // Determine API base URL
-    const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-    const apiBaseUrl = isProduction 
-      ? window.location.origin 
-      : 'http://localhost:3000';
+    const apiBaseUrl = this.getApiBaseUrl();
     
     // Build full URL if relative path provided
     const fullUrl = url.startsWith('http') ? url : `${apiBaseUrl}${url}`;
@@ -146,7 +161,12 @@ class AuthManager {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_parseError) {
+        data = {};
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
@@ -155,6 +175,10 @@ class AuthManager {
       this.userType = 'staff';
       return { success: true, data };
     } catch (error) {
+      if (String(error?.message || '').toLowerCase().includes('failed to fetch')) {
+        return { success: false, error: 'Unable to reach the login service. Check your network and try again.' };
+      }
+
       return { success: false, error: error.message };
     }
   }
@@ -169,7 +193,12 @@ class AuthManager {
         body: JSON.stringify({ email, password })
       });
 
-      const data = await response.json();
+      let data = {};
+      try {
+        data = await response.json();
+      } catch (_parseError) {
+        data = {};
+      }
 
       if (!response.ok) {
         throw new Error(data.message || 'Login failed');
@@ -178,6 +207,10 @@ class AuthManager {
       this.userType = 'customer';
       return { success: true, data };
     } catch (error) {
+      if (String(error?.message || '').toLowerCase().includes('failed to fetch')) {
+        return { success: false, error: 'Unable to reach the login service. Check your network and try again.' };
+      }
+
       return { success: false, error: error.message };
     }
   }

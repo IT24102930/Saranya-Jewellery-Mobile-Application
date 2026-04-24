@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { jsPDF } from 'jspdf';
-import { FiHome, FiTruck, FiFileText, FiLogOut } from 'react-icons/fi';
+import { FiHome, FiTruck, FiFileText, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 import authManager from '../auth.js';
 
 // Chart.js CDN will be loaded in useEffect
@@ -465,6 +465,8 @@ export default function OrderManagementDashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
   const chartRef = useRef(null);
   const chartInstance = useRef(null);
 
@@ -637,6 +639,37 @@ export default function OrderManagementDashboardPage() {
     bootstrap();
   }, []);
 
+  useEffect(() => {
+    function handleResize() {
+      const mobile = window.innerWidth < 1024;
+      setIsMobileView(mobile);
+      if (!mobile) {
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileView || !isMobileNavOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileNavOpen, isMobileView]);
+
+  useEffect(() => {
+    if (isMobileView) {
+      setIsMobileNavOpen(false);
+    }
+  }, [activeTab, isMobileView]);
+
   async function loadProducts() {
     try {
       const response = await authManager.apiRequest('/api/products');
@@ -739,7 +772,46 @@ export default function OrderManagementDashboardPage() {
   if (!staffUser) return <div style={{ padding: '2rem', textAlign: 'center', background: '#FDF9F2', minHeight: '100vh' }}>Checking order management access...</div>;
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#FDF9F2', fontFamily: "'Inter', sans-serif" }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#FDF9F2', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
+      {isMobileView && (
+        <button
+          type="button"
+          onClick={() => setIsMobileNavOpen((prev) => !prev)}
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            left: '1rem',
+            zIndex: 220,
+            border: 'none',
+            background: '#6f0022',
+            color: '#fff',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
+            cursor: 'pointer'
+          }}
+          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        >
+          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+        </button>
+      )}
+
+      {isMobileView && isMobileNavOpen && (
+        <div
+          onClick={() => setIsMobileNavOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(23, 12, 18, 0.45)',
+            zIndex: 140
+          }}
+        />
+      )}
+
       {/* Sidebar - Redesigned to match Admin Dashboard */}
       <aside style={{
         width: '320px',
@@ -751,7 +823,10 @@ export default function OrderManagementDashboardPage() {
         height: '100vh',
         left: 0,
         top: 0,
-        zIndex: 100
+        zIndex: 200,
+        transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
+        transition: 'transform 0.25s ease',
+        boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
       }}>
         {/* Sidebar Header */}
         <div style={{
@@ -792,7 +867,12 @@ export default function OrderManagementDashboardPage() {
               return (
                 <button
                   key={item.key}
-                  onClick={() => setActiveTab(item.key)}
+                  onClick={() => {
+                    setActiveTab(item.key);
+                    if (isMobileView) {
+                      setIsMobileNavOpen(false);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -885,7 +965,7 @@ export default function OrderManagementDashboardPage() {
       </aside>
 
       {/* Main Content */}
-      <main style={{ flex: 1, marginLeft: '320px', padding: '1.8rem 2.2rem', background: '#FDF9F2' }}>
+      <main style={{ flex: 1, marginLeft: isMobileView ? 0 : '320px', padding: isMobileView ? '5rem 1rem 1.2rem' : '1.8rem 2.2rem', background: '#FDF9F2' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', marginBottom: '2rem' }}>
           <div>{/* Empty for spacing */}</div>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

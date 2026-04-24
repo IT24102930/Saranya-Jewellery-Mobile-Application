@@ -7,6 +7,8 @@
     "dev": "node backend/server.js",
     "start": "node backend/server.js",
     "frontend:install": "npm --prefix frontend install",
+    "mobile:install": "npm --prefix mobile install",
+    "mobile:start": "npm --prefix mobile run start",
     "frontend:build": "npm --prefix frontend run build",
     "start:mern": "npm run frontend:build && node backend/server.js"
   },

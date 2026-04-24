@@ -4,6 +4,21 @@ import { isAuthenticated, isAdmin, isApproved } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function isDatabaseError(error) {
+  const message = String(error?.message || '').toLowerCase();
+  const name = String(error?.name || '').toLowerCase();
+
+  return (
+    name.includes('mongo') ||
+    name.includes('mongoose') ||
+    message.includes('mongodb') ||
+    message.includes('mongoose') ||
+    message.includes('buffering timed out') ||
+    message.includes('server selection') ||
+    message.includes('topology')
+  );
+}
+
 // POST /api/auth/register - Register new staff
 router.post('/register', async (req, res) => {
   try {
@@ -100,6 +115,10 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
+    if (isDatabaseError(error)) {
+      return res.status(503).json({ message: 'Database is temporarily unavailable. Please try again later.' });
+    }
+
     res.status(500).json({ message: 'Server error during login' });
   }
 });

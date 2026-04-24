@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiBox, FiPlus, FiDatabase, FiLogOut } from 'react-icons/fi';
+import { FiBox, FiPlus, FiDatabase, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
 import authManager from '../auth.js';
 
 const emptyForm = {
@@ -26,6 +26,8 @@ export default function ProductManagementDashboardPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [featuredFilter, setFeaturedFilter] = useState('all');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
 
   const activeProducts = useMemo(
     () => products.filter((item) => item.productStatus === 'Active').length,
@@ -59,6 +61,37 @@ export default function ProductManagementDashboardPage() {
     }
     bootstrap();
   }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      const mobile = window.innerWidth < 1024;
+      setIsMobileView(mobile);
+      if (!mobile) {
+        setIsMobileNavOpen(false);
+      }
+    }
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobileView || !isMobileNavOpen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileNavOpen, isMobileView]);
+
+  useEffect(() => {
+    if (isMobileView) {
+      setIsMobileNavOpen(false);
+    }
+  }, [activeSection, isMobileView]);
 
   async function loadProducts() {
     setError('');
@@ -227,7 +260,46 @@ export default function ProductManagementDashboardPage() {
   const selectedStockItem = stockOptions.find((item) => item._id === form.stockProductId);
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc', position: 'relative' }}>
+      {isMobileView && (
+        <button
+          type="button"
+          onClick={() => setIsMobileNavOpen((prev) => !prev)}
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            left: '1rem',
+            zIndex: 220,
+            border: 'none',
+            background: '#6f0022',
+            color: '#fff',
+            width: '44px',
+            height: '44px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
+            cursor: 'pointer'
+          }}
+          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        >
+          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
+        </button>
+      )}
+
+      {isMobileView && isMobileNavOpen && (
+        <div
+          onClick={() => setIsMobileNavOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(23, 12, 18, 0.45)',
+            zIndex: 140
+          }}
+        />
+      )}
+
       {/* Sidebar */}
       <aside style={{
         width: '320px',
@@ -239,7 +311,10 @@ export default function ProductManagementDashboardPage() {
         height: '100vh',
         left: 0,
         top: 0,
-        zIndex: 100
+        zIndex: 200,
+        transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
+        transition: 'transform 0.25s ease',
+        boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
       }}>
         {/* Sidebar Header */}
         <div style={{
@@ -281,7 +356,12 @@ export default function ProductManagementDashboardPage() {
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => setActiveSection(item.key)}
+                  onClick={() => {
+                    setActiveSection(item.key);
+                    if (isMobileView) {
+                      setIsMobileNavOpen(false);
+                    }
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -381,8 +461,8 @@ export default function ProductManagementDashboardPage() {
       {/* Main Content */}
       <main style={{
         flex: 1,
-        marginLeft: '320px',
-        padding: '2rem',
+        marginLeft: isMobileView ? 0 : '320px',
+        padding: isMobileView ? '5rem 1rem 1.25rem' : '2rem',
         overflowY: 'auto'
       }}>
         {/* Stats Cards - Only on Product List */}
