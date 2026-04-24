@@ -94,47 +94,78 @@ function isCustomerPage(pathname) {
 }
 
 function getHideCustomerHeaderScript(pathname) {
-  if (!isCustomerPage(pathname)) {
-    return 'true;';
-  }
-
   const css = [
-    '.top-bar,',
-    '.header .nav,',
-    '.header .header-icons,',
-    '.header .logo,',
-    '.header-icons,',
-    '.nav {',
-    '  display: none !important;',
-    '  visibility: hidden !important;',
-    '}',
-    '.header {',
-    '  min-height: 0 !important;',
-    '  height: 0 !important;',
-    '  padding: 0 !important;',
-    '  margin: 0 !important;',
-    '  border: 0 !important;',
-    '  overflow: hidden !important;',
-    '}',
-    'main, .main, .dashboard-container, .container {',
-    '  margin-top: 0 !important;',
-    '  padding-top: 0 !important;',
-    '}',
+    '.top-bar { display: none !important; }',
+    '.header { display: none !important; }',
+    'header { display: none !important; }',
+    'footer { display: none !important; }',
+    '.footer { display: none !important; }',
+    '.footer-content { display: none !important; }',
+    '.footer-section { display: none !important; }',
+    '.footer-links { display: none !important; }',
+    '.footer-bottom { display: none !important; }',
+    '.nav { display: none !important; }',
+    '.header-icons { display: none !important; }',
   ].join('\n');
 
   return `
     (function () {
-      try {
-        var existing = document.getElementById('saranya-mobile-customer-header-hide');
-        if (!existing) {
-          var style = document.createElement('style');
-          style.id = 'saranya-mobile-customer-header-hide';
-          style.textContent = ${JSON.stringify(css)};
-          document.head.appendChild(style);
+      function hideHeaderFooter() {
+        try {
+          var style = document.getElementById('saranya-mobile-header-footer-hide');
+          if (style) {
+            style.remove();
+          }
+          var newStyle = document.createElement('style');
+          newStyle.id = 'saranya-mobile-header-footer-hide';
+          newStyle.textContent = ${JSON.stringify(css)};
+          document.head.appendChild(newStyle);
+          
+          document.querySelectorAll('.top-bar, .header, header, footer, .footer, .footer-content, .footer-section, .footer-links, .footer-bottom, .nav, .header-icons').forEach(function (el) {
+            if (el && el.style) {
+              el.style.setProperty('display', 'none', 'important');
+            }
+          });
+        } catch (error) {
+          console.warn('Failed to inject mobile header/footer styles', error);
         }
-      } catch (error) {
-        console.warn('Failed to inject mobile customer styles', error);
       }
+
+      function postCartCount() {
+        try {
+          if (!window.ReactNativeWebView || !window.ReactNativeWebView.postMessage) {
+            return;
+          }
+          var cartRaw = localStorage.getItem('saranyaCart') || '[]';
+          var cart = JSON.parse(cartRaw);
+          var count = Array.isArray(cart)
+            ? cart.reduce(function (sum, item) {
+                return sum + Number((item && item.quantity) || 0);
+              }, 0)
+            : 0;
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'cartCount', count: count }));
+        } catch (_error) {
+          // Ignore parse and storage access errors.
+        }
+      }
+      
+      hideHeaderFooter();
+      postCartCount();
+      setTimeout(hideHeaderFooter, 100);
+      setTimeout(hideHeaderFooter, 500);
+      setTimeout(hideHeaderFooter, 1000);
+      setTimeout(postCartCount, 100);
+      setTimeout(postCartCount, 500);
+      setTimeout(postCartCount, 1000);
+
+      if (window.__saranyaCartCountInterval) {
+        clearInterval(window.__saranyaCartCountInterval);
+      }
+      window.__saranyaCartCountInterval = setInterval(postCartCount, 1000);
+
+      window.addEventListener('storage', postCartCount);
+      
+      document.addEventListener('DOMContentLoaded', hideHeaderFooter);
     })();
     true;
   `;
@@ -152,6 +183,7 @@ export default function App() {
   const [pageTitle, setPageTitle] = useState('Home');
   const [currentPath, setCurrentPath] = useState(HOME_ROUTE);
   const [isCustomerSession, setIsCustomerSession] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const webViewRef = useRef(null);
   const webUrl = useMemo(() => getLanWebUrl(), []);
   const currentWebUrl = useMemo(() => joinUrl(webUrl, webRoute), [webRoute, webUrl]);
@@ -282,9 +314,11 @@ export default function App() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        <Pressable style={styles.backButton} onPress={handleBackPress}>
-          <Text style={styles.backButtonText}>‹</Text>
-        </Pressable>
+        {currentPath !== HOME_ROUTE && (
+          <Pressable style={styles.backButton} onPress={handleBackPress}>
+            <Text style={styles.backButtonText}>‹</Text>
+          </Pressable>
+        )}
         <Text style={styles.headerTitle}>{pageTitle}</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -315,6 +349,16 @@ export default function App() {
             javaScriptEnabled
             domStorageEnabled
             injectedJavaScriptBeforeContentLoaded={injectedMobileCss}
+            onMessage={(event) => {
+              try {
+                const data = JSON.parse(event.nativeEvent.data || '{}');
+                if (data.type === 'cartCount') {
+                  setCartCount(Number(data.count || 0));
+                }
+              } catch (_error) {
+                // Ignore unrelated WebView messages.
+              }
+            }}
             onNavigationStateChange={(navState) => {
               setCanGoBack(navState.canGoBack);
               const nextPath = getPathname(navState.url);
@@ -355,6 +399,7 @@ export default function App() {
               onPress={() => openCustomerRoute(item.route, item.title)}
               icon={item.icon}
               compact
+              badge={item.route === '/customer-cart' ? cartCount : 0}
             />
           ))}
         </View>
@@ -387,10 +432,17 @@ export default function App() {
   );
 }
 
-function NavButton({ label, active, onPress, icon, compact }) {
+function NavButton({ label, active, onPress, icon, compact, badge }) {
   return (
     <Pressable style={[styles.tabButton, compact ? styles.tabButtonCompact : styles.tabButtonWide, active && styles.tabButtonActive]} onPress={onPress}>
-      <Feather name={icon} size={18} color={active ? '#b08d3b' : '#6b7280'} />
+      <View style={{ position: 'relative' }}>
+        <Feather name={icon} size={18} color={active ? '#b08d3b' : '#6b7280'} />
+        {badge > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
+          </View>
+        )}
+      </View>
       <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -481,6 +533,24 @@ const styles = StyleSheet.create({
   },
   tabButtonTextActive: {
     color: '#b08d3b',
+  },
+  badge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#b08d3b',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
+    lineHeight: 12,
   },
   profileContainer: {
     padding: 20,
