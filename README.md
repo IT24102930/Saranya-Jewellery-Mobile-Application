@@ -40,6 +40,9 @@ npm install
 
 # Install frontend dependencies
 npm run frontend:install
+
+# Install mobile dependencies (required for Expo)
+npm run mobile:install
 ```
 
 ### 3. Environment Variables
@@ -58,30 +61,45 @@ The `.env` file is already configured with:
 - Email is configured to use Testmail.app (`USE_TESTMAIL=true`), which captures all test emails
 - For production, update `EMAIL_USER` and `EMAIL_PASSWORD` with your own credentials
 
-### 4. Start the Application
+### 4. Run the Project
 
-**Development Mode (Frontend + Backend):**
+Use separate terminals for backend/frontend/mobile during development.
+
+**Terminal 1 - Backend API (Express):**
 
 ```bash
 npm run dev
 ```
 
-This starts the backend server on `http://localhost:3000`
+Backend runs on `http://localhost:3000`
 
-**Production Mode (Build Frontend + Run Backend):**
-
-```bash
-npm run start:mern
-```
-
-**Frontend Only (with Vite dev server):**
+**Terminal 2 - Frontend (Vite):**
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Frontend will be available on `http://localhost:5173`
+Frontend runs on `http://localhost:5173`
+
+**Terminal 3 - Mobile (Expo, optional):**
+
+```bash
+cd mobile
+npx expo start
+```
+
+If Expo says `module expo is not installed`, install mobile deps first:
+
+```bash
+npm run mobile:install
+```
+
+**Single command for production-like run (build frontend + serve from backend):**
+
+```bash
+npm run start:mern
+```
 
 ## Run In Expo Go (Mobile, Same Wi-Fi)
 
