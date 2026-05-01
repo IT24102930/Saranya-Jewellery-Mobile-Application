@@ -74,6 +74,8 @@ export default function CustomerCareDashboardPage() {
   });
   const [isCreatingOffer, setIsCreatingOffer] = useState(false);
   const [editingOfferId, setEditingOfferId] = useState(null);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [overviewLoading, setOverviewLoading] = useState(false);
 
   // Messages state
   const [chats, setChats] = useState([]);
@@ -160,10 +162,11 @@ export default function CustomerCareDashboardPage() {
   // ============ DASHBOARD OVERVIEW FUNCTIONS ============
   async function loadDashboardOverview() {
     try {
+      setOverviewLoading(true);
       // Prefer direct counts for promotions to avoid any mismatch
       let activeOffers = 0;
       try {
-        const promoResp = await authManager.apiRequest('/api/messages?type=promotion&status=active');
+        const promoResp = await authManager.apiRequest(`/api/messages?type=promotion&status=active&t=${Date.now()}`);
         const promoData = await promoResp.json();
         console.debug('promoResp.ok', promoResp.ok, 'promoData', promoData);
         if (promoResp.ok && Array.isArray(promoData)) {
@@ -179,7 +182,7 @@ export default function CustomerCareDashboardPage() {
       // If direct count failed, fall back to /api/messages/stats
       if (!activeOffers) {
         try {
-          const msgStatsResp = await authManager.apiRequest('/api/messages/stats');
+          const msgStatsResp = await authManager.apiRequest(`/api/messages/stats?t=${Date.now()}`);
           const msgStats = await msgStatsResp.json();
           console.debug('msgStatsResp.ok', msgStatsResp.ok, 'msgStats', msgStats);
           activeOffers = msgStatsResp.ok ? (msgStats.activeMessages || 0) : 0;
@@ -192,7 +195,7 @@ export default function CustomerCareDashboardPage() {
       let qaArticles = 0; // reused field for backward compatibility with UI
       let pendingQuestions = 0; // count of pending chats
       try {
-        const chatsResp = await authManager.apiRequest('/api/chat/all');
+        const chatsResp = await authManager.apiRequest(`/api/chat/all?t=${Date.now()}`);
         const chatsData = await chatsResp.json();
         console.debug('Chats data for chat count:', chatsData);
         if (chatsResp.ok && Array.isArray(chatsData)) {
@@ -211,7 +214,7 @@ export default function CustomerCareDashboardPage() {
       // Chat stats for answered rate
       let answeredRate = 0;
       try {
-        const chatResp = await authManager.apiRequest('/api/chat/stats/summary');
+        const chatResp = await authManager.apiRequest(`/api/chat/stats/summary?t=${Date.now()}`);
         const chatStats = await chatResp.json();
         console.debug('chatResp.ok', chatResp.ok, 'chatStats', chatStats);
         const totalChats = chatResp.ok ? (chatStats.totalChats || 0) : 0;
@@ -227,7 +230,7 @@ export default function CustomerCareDashboardPage() {
       
       // Load recent promotional offers for activity feed
       try {
-        const offersResp = await authManager.apiRequest('/api/messages?type=promotion');
+        const offersResp = await authManager.apiRequest(`/api/messages?type=promotion&t=${Date.now()}`);
         const offersData = await offersResp.json();
         if (offersResp.ok && Array.isArray(offersData)) {
           offersData.slice(0, 3).forEach((offer) => {
@@ -245,7 +248,7 @@ export default function CustomerCareDashboardPage() {
       
       // Add recent customer messages to activity feed
       try {
-        const chatsResp = await authManager.apiRequest('/api/chat/all');
+        const chatsResp = await authManager.apiRequest(`/api/chat/all?t=${Date.now()}`);
         const chatsData = await chatsResp.json();
         if (chatsResp.ok && Array.isArray(chatsData)) {
           chatsData.slice(0, 3).forEach((chat) => {
@@ -265,7 +268,7 @@ export default function CustomerCareDashboardPage() {
       
       // Add recent reviews to activity feed
       try {
-        const reviewsResp = await authManager.apiRequest('/api/reviews');
+        const reviewsResp = await authManager.apiRequest(`/api/reviews?t=${Date.now()}`);
         const reviewsData = await reviewsResp.json();
         if (reviewsResp.ok && Array.isArray(reviewsData)) {
           reviewsData.slice(0, 3).forEach((review) => {
@@ -287,13 +290,13 @@ export default function CustomerCareDashboardPage() {
       
       // Load top customer questions/messages for top questions section
       try {
-        const chatsResp = await authManager.apiRequest('/api/chat/all');
+        const chatsResp = await authManager.apiRequest(`/api/chat/all?t=${Date.now()}`);
         const chatsData = await chatsResp.json();
         if (chatsResp.ok && Array.isArray(chatsData)) {
           // For each chat, get the full chat data to access all messages
           for (const chatSummary of chatsData.slice(0, 10)) {
             try {
-              const chatDetailResp = await authManager.apiRequest(`/api/chat/${chatSummary._id}`);
+              const chatDetailResp = await authManager.apiRequest(`/api/chat/${chatSummary._id}?t=${Date.now()}`);
               const chatDetail = await chatDetailResp.json();
               
               if (chatDetailResp.ok && chatDetail.messages && Array.isArray(chatDetail.messages)) {
@@ -330,6 +333,8 @@ export default function CustomerCareDashboardPage() {
       });
     } catch (err) {
       console.error('Error loading dashboard overview:', err);
+    } finally {
+      setOverviewLoading(false);
     }
   }
 
@@ -338,13 +343,13 @@ export default function CustomerCareDashboardPage() {
     try {
       setOffersLoading(true);
       setOffersError('');
-      // Query the backend for standard offers
-      const response = await authManager.apiRequest('/api/loyalty/offers/standard');
+      // Query the backend for standard offers with cache-busting timestamp
+      const response = await authManager.apiRequest(`/api/loyalty/offers/standard?t=${Date.now()}`, { method: 'GET' });
       const data = await response.json();
       
       if (response.ok) {
         const standardOffers = Array.isArray(data) ? data : [];
-        console.log('Loaded standard offers:', standardOffers);
+        console.log('Loaded standard offers:', standardOffers, 'Count:', standardOffers.length);
         setOffers(standardOffers);
       } else {
         console.error('Failed to load offers:', data);
@@ -376,14 +381,23 @@ export default function CustomerCareDashboardPage() {
       return;
     }
 
-    if (offerForm.validUntil < todayDate) {
-      setError('Valid Until date cannot be in the past');
-      return;
-    }
+    // When creating a new offer, both dates must be current or future
+    if (!editingOfferId) {
+      if (offerForm.validUntil < todayDate) {
+        setError('Valid Until date cannot be in the past');
+        return;
+      }
 
-    if (offerForm.validFrom < todayDate) {
-      setError('Valid From date cannot be in the past');
-      return;
+      if (offerForm.validFrom < todayDate) {
+        setError('Valid From date cannot be in the past');
+        return;
+      }
+    } else {
+      // When editing, only ensure that the new dates make sense
+      if (offerForm.validUntil < offerForm.validFrom) {
+        setError('Valid Until date must be after Valid From date');
+        return;
+      }
     }
 
     setIsCreatingOffer(true);
@@ -409,10 +423,18 @@ export default function CustomerCareDashboardPage() {
       if (!response.ok) {
         setError(data.message || 'Failed to create offer');
       } else {
+        // Reload offers to ensure stats are updated before showing success
+        await loadOffers();
+        
+        // Show success message
+        const msg = editingOfferId ? 'Offer updated successfully!' : 'Offer created successfully!';
+        setSuccessMessage(msg);
         setOfferForm({ title: '', description: '', offerType: 'Seasonal Offer', discountPercentage: '', discountAmount: '', validFrom: '', validUntil: '', couponCode: '' });
         setEditingOfferId(null);
         setError('');
-        await loadOffers();
+        
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
       }
     } catch (err) {
       setError(err.message || 'Error creating offer');
@@ -453,8 +475,15 @@ export default function CustomerCareDashboardPage() {
 
       const data = await response.json();
       if (response.ok) {
-        alert(`Offer sent to ${data.successCount || 0} customers`);
+        // Reload offers to ensure stats are updated with new sentCount
         await loadOffers();
+        
+        const successCount = data.successCount || 0;
+        const msg = `Offer sent to ${successCount} customer${successCount !== 1 ? 's' : ''}!`;
+        setSuccessMessage(msg);
+        
+        // Auto-clear success message after 3 seconds
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setError(data.message || 'Failed to send offer');
       }
@@ -640,7 +669,7 @@ export default function CustomerCareDashboardPage() {
   // ============ APPOINTMENT SLOTS FUNCTIONS ============
   async function loadSlots() {
     try {
-      const response = await authManager.apiRequest('/api/appointments/slots');
+      const response = await authManager.apiRequest(`/api/appointments/slots?t=${Date.now()}`);
       const data = await response.json();
       if (response.ok) {
         setSlots(Array.isArray(data) ? data : []);
@@ -652,7 +681,7 @@ export default function CustomerCareDashboardPage() {
 
   async function loadAppointments() {
     try {
-      const response = await authManager.apiRequest('/api/appointments');
+      const response = await authManager.apiRequest(`/api/appointments?t=${Date.now()}`);
       const data = await response.json();
       if (response.ok) {
         setAppointments(Array.isArray(data.appointments) ? data.appointments : []);
@@ -667,6 +696,12 @@ export default function CustomerCareDashboardPage() {
     e.preventDefault();
     if (!slotForm.date || slotForm.timeSlotIndex === undefined || slotForm.timeSlotIndex === null) {
       setError('All fields required');
+      return;
+    }
+
+    // Validate that the date is not in the past for new slots
+    if (!editingSlotId && slotForm.date < todayDate) {
+      setError('Appointment date cannot be in the past');
       return;
     }
 
@@ -696,6 +731,8 @@ export default function CustomerCareDashboardPage() {
         setSlotForm({ date: '', timeSlotIndex: 0, type: 'In-Store Consultation', capacity: 1, assignedStaff: '', isBlocked: false, blockReason: '' });
         setEditingSlotId(null);
         await loadSlots();
+        setSuccessMessage('Appointment slot saved successfully!');
+        setTimeout(() => setSuccessMessage(''), 3000);
       } else {
         setError(data.message || 'Failed to save slot');
       }
@@ -1008,7 +1045,7 @@ export default function CustomerCareDashboardPage() {
           flex: 1,
           marginLeft: isMobileView ? 0 : "320px",
           overflow: "auto",
-          padding: isMobileView ? "4.75rem 0.9rem 1rem" : "2rem",
+          padding: isMobileView ? "4.75rem 0.75rem 0.75rem" : "2rem",
           backgroundImage: "url('/jewelry-bg.jpg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
@@ -1049,29 +1086,64 @@ export default function CustomerCareDashboardPage() {
           {/* DASHBOARD OVERVIEW TAB */}
           {activeTab === "overview" && (
             <div>
-              {/* Header */}
-              <div style={{ marginBottom: "2.5rem" }}>
-                <h2
+              {/* Header with Refresh Button */}
+              <div
+                style={{
+                  marginBottom: "2.5rem",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                }}
+              >
+                <div>
+                  <h2
+                    style={{
+                      margin: "0 0 0.5rem",
+                      color: "#FFFFFF",
+                      fontSize: isMobileView ? "1.5rem" : "2rem",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Dashboard Overview
+                  </h2>
+                  <p style={{ margin: 0, color: "#666", fontSize: isMobileView ? "0.85rem" : "0.95rem" }}>
+                    Welcome back! Here's what is happening today
+                  </p>
+                </div>
+                <button
+                  onClick={loadDashboardOverview}
+                  disabled={overviewLoading}
                   style={{
-                    margin: "0 0 0.5rem",
-                    color: "#FFFFFF",
-                    fontSize: "2rem",
-                    fontWeight: 700,
+                    padding: "0.75rem 1.5rem",
+                    background: "#6f0022",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    fontSize: "0.9rem",
+                    fontWeight: 600,
+                    cursor: overviewLoading ? "not-allowed" : "pointer",
+                    opacity: overviewLoading ? 0.6 : 1,
+                    transition: "all 0.2s ease",
+                    whiteSpace: "nowrap",
                   }}
+                  onMouseEnter={(e) =>
+                    !overviewLoading && (e.target.style.background = "#8b0033")
+                  }
+                  onMouseLeave={(e) =>
+                    !overviewLoading && (e.target.style.background = "#6f0022")
+                  }
+                  title="Refresh overview data"
                 >
-                  Dashboard Overview
-                </h2>
-                <p style={{ margin: 0, color: "#666", fontSize: "0.95rem" }}>
-                  Welcome back! Here's what is happening today
-                </p>
+                  {overviewLoading ? "Loading..." : "↻ Refresh"}
+                </button>
               </div>
 
               {/* Stats Cards */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-                  gap: "1.5rem",
+                  gridTemplateColumns: isMobileView ? "1fr" : "repeat(auto-fit, minmax(240px, 1fr))",
+                  gap: isMobileView ? "1rem" : "1.5rem",
                   marginBottom: "2.5rem",
                 }}
               >
@@ -1081,7 +1153,7 @@ export default function CustomerCareDashboardPage() {
                     background:
                       "linear-gradient(135deg, #6f0022 0%, #8b0033 100%)",
                     borderRadius: "12px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 4px 15px rgba(111, 0, 34, 0.2)",
                   }}
@@ -1092,6 +1164,7 @@ export default function CustomerCareDashboardPage() {
                       alignItems: "flex-start",
                       justifyContent: "space-between",
                       marginBottom: "1rem",
+                      gap: isMobileView ? "0.5rem" : "1rem",
                     }}
                   >
                     <div>
@@ -1099,7 +1172,7 @@ export default function CustomerCareDashboardPage() {
                         style={{
                           margin: 0,
                           color: "#e0bf63",
-                          fontSize: "0.85rem",
+                          fontSize: isMobileView ? "0.75rem" : "0.85rem",
                           fontWeight: 500,
                           textTransform: "uppercase",
                           letterSpacing: "0.5px",
@@ -1110,7 +1183,7 @@ export default function CustomerCareDashboardPage() {
                       <h3
                         style={{
                           margin: "0.8rem 0 0",
-                          fontSize: "2.5rem",
+                          fontSize: isMobileView ? "2rem" : "2.5rem",
                           fontWeight: 700,
                           color: "#e0bf63",
                         }}
@@ -1118,7 +1191,7 @@ export default function CustomerCareDashboardPage() {
                         {dashboardStats.activeOffers}
                       </h3>
                     </div>
-                    <span style={{ fontSize: "2.5rem" }}>★</span>
+                    <span style={{ fontSize: isMobileView ? "2rem" : "2.5rem", flexShrink: 0 }}>★</span>
                   </div>
                   <p
                     style={{ margin: 0, color: "#e0bf63", fontSize: "0.85rem" }}
@@ -1133,7 +1206,7 @@ export default function CustomerCareDashboardPage() {
                     background:
                       "linear-gradient(135deg, #6f0022 0%, #8b0033 100%)",
                     borderRadius: "12px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 4px 15px rgba(111, 0, 34, 0.2)",
                   }}
@@ -1144,6 +1217,7 @@ export default function CustomerCareDashboardPage() {
                       alignItems: "flex-start",
                       justifyContent: "space-between",
                       marginBottom: "1rem",
+                      gap: isMobileView ? "0.5rem" : "1rem",
                     }}
                   >
                     <div>
@@ -1151,7 +1225,7 @@ export default function CustomerCareDashboardPage() {
                         style={{
                           margin: 0,
                           color: "#e0bf63",
-                          fontSize: "0.85rem",
+                          fontSize: isMobileView ? "0.75rem" : "0.85rem",
                           fontWeight: 500,
                           textTransform: "uppercase",
                           letterSpacing: "0.5px",
@@ -1162,7 +1236,7 @@ export default function CustomerCareDashboardPage() {
                       <h3
                         style={{
                           margin: "0.8rem 0 0",
-                          fontSize: "2.5rem",
+                          fontSize: isMobileView ? "2rem" : "2.5rem",
                           fontWeight: 700,
                           color: "#e0bf63",
                         }}
@@ -1170,7 +1244,7 @@ export default function CustomerCareDashboardPage() {
                         {dashboardStats.qaArticles}
                       </h3>
                     </div>
-                    <span style={{ fontSize: "2.5rem" }}>💬</span>
+                    <span style={{ fontSize: isMobileView ? "2rem" : "2.5rem", flexShrink: 0 }}>💬</span>
                   </div>
                   <p
                     style={{
@@ -1189,7 +1263,7 @@ export default function CustomerCareDashboardPage() {
                     background:
                       "linear-gradient(135deg, #6f0022 0%, #8b0033 100%)",
                     borderRadius: "12px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 4px 15px rgba(111, 0, 34, 0.2)",
                   }}
@@ -1200,6 +1274,7 @@ export default function CustomerCareDashboardPage() {
                       alignItems: "flex-start",
                       justifyContent: "space-between",
                       marginBottom: "1rem",
+                      gap: isMobileView ? "0.5rem" : "1rem",
                     }}
                   >
                     <div>
@@ -1207,7 +1282,7 @@ export default function CustomerCareDashboardPage() {
                         style={{
                           margin: 0,
                           color: "#e0bf63",
-                          fontSize: "0.85rem",
+                          fontSize: isMobileView ? "0.75rem" : "0.85rem",
                           fontWeight: 500,
                           textTransform: "uppercase",
                           letterSpacing: "0.5px",
@@ -1218,7 +1293,7 @@ export default function CustomerCareDashboardPage() {
                       <h3
                         style={{
                           margin: "0.8rem 0 0",
-                          fontSize: "2.5rem",
+                          fontSize: isMobileView ? "2rem" : "2.5rem",
                           fontWeight: 700,
                           color: "#e0bf63",
                         }}
@@ -1226,7 +1301,7 @@ export default function CustomerCareDashboardPage() {
                         {dashboardStats.pendingQuestions}
                       </h3>
                     </div>
-                    <span style={{ fontSize: "2.5rem" }}>⏳</span>
+                    <span style={{ fontSize: isMobileView ? "2rem" : "2.5rem", flexShrink: 0 }}>⏳</span>
                   </div>
                   <p
                     style={{ margin: 0, color: "#e0bf63", fontSize: "0.85rem" }}
@@ -1241,7 +1316,7 @@ export default function CustomerCareDashboardPage() {
                     background:
                       "linear-gradient(135deg, #6f0022 0%, #8b0033 100%)",
                     borderRadius: "12px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 4px 15px rgba(111, 0, 34, 0.2)",
                   }}
@@ -1252,6 +1327,7 @@ export default function CustomerCareDashboardPage() {
                       alignItems: "flex-start",
                       justifyContent: "space-between",
                       marginBottom: "1rem",
+                      gap: isMobileView ? "0.5rem" : "1rem",
                     }}
                   >
                     <div>
@@ -1259,7 +1335,7 @@ export default function CustomerCareDashboardPage() {
                         style={{
                           margin: 0,
                           color: "#e0bf63",
-                          fontSize: "0.85rem",
+                          fontSize: isMobileView ? "0.75rem" : "0.85rem",
                           fontWeight: 500,
                           textTransform: "uppercase",
                           letterSpacing: "0.5px",
@@ -1270,7 +1346,7 @@ export default function CustomerCareDashboardPage() {
                       <h3
                         style={{
                           margin: "0.8rem 0 0",
-                          fontSize: "2.5rem",
+                          fontSize: isMobileView ? "2rem" : "2.5rem",
                           fontWeight: 700,
                           color: "#e0bf63",
                         }}
@@ -1278,7 +1354,7 @@ export default function CustomerCareDashboardPage() {
                         {dashboardStats.answeredRate}%
                       </h3>
                     </div>
-                    <span style={{ fontSize: "2.5rem" }}>✓</span>
+                    <span style={{ fontSize: isMobileView ? "2rem" : "2.5rem", flexShrink: 0 }}>✓</span>
                   </div>
                   <p
                     style={{ margin: 0, color: "#e0bf63", fontSize: "0.85rem" }}
@@ -1292,25 +1368,27 @@ export default function CustomerCareDashboardPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: "2rem",
+                  gridTemplateColumns: isMobileView ? "1fr" : "1fr 1fr",
+                  gap: isMobileView ? "1.5rem" : "2rem",
+                  gridAutoFlow: isMobileView ? "dense" : "row",
                 }}
               >
-                {/* Recent Activity */}
+                {/* Recent Activity - First */}
                 <div
                   style={{
                     background: "#fff",
                     border: "1px solid #e5e5e5",
                     borderRadius: "12px",
-                    padding: "2rem",
+                    padding: isMobileView ? "1.5rem" : "2rem",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                    order: 1,
                   }}
                 >
                   <h3
                     style={{
                       margin: "0 0 1.5rem",
                       color: "#1a1a1a",
-                      fontSize: "1.1rem",
+                      fontSize: isMobileView ? "1rem" : "1.1rem",
                       fontWeight: 600,
                     }}
                   >
@@ -1323,6 +1401,7 @@ export default function CustomerCareDashboardPage() {
                           color: "#aaa",
                           textAlign: "center",
                           padding: "2rem 0",
+                          fontSize: isMobileView ? "0.9rem" : "0.95rem",
                         }}
                       >
                         No recent activities
@@ -1343,8 +1422,8 @@ export default function CustomerCareDashboardPage() {
                         >
                           <div
                             style={{
-                              width: "40px",
-                              height: "40px",
+                              width: isMobileView ? "36px" : "40px",
+                              height: isMobileView ? "36px" : "40px",
                               borderRadius: "8px",
                               background:
                                 activity.type === "offer"
@@ -1357,19 +1436,20 @@ export default function CustomerCareDashboardPage() {
                               justifyContent: "center",
                               color:
                                 activity.type === "offer" ? "#fff" : "#333",
-                              fontSize: "1.2rem",
+                              fontSize: isMobileView ? "1rem" : "1.2rem",
                               flexShrink: 0,
                             }}
                           >
                             {activity.icon}
                           </div>
-                          <div style={{ flex: 1 }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
                             <p
                               style={{
                                 margin: 0,
                                 color: "#333",
-                                fontSize: "0.95rem",
+                                fontSize: isMobileView ? "0.9rem" : "0.95rem",
                                 fontWeight: 500,
+                                wordBreak: "break-word",
                               }}
                             >
                               {activity.text}
@@ -1390,21 +1470,22 @@ export default function CustomerCareDashboardPage() {
                   </div>
                 </div>
 
-                {/* Top Viewed Questions */}
+                {/* Top Viewed Questions - Second */}
                 <div
                   style={{
                     background: "#fff",
                     border: "1px solid #e5e5e5",
                     borderRadius: "12px",
-                    padding: "2rem",
+                    padding: isMobileView ? "1.5rem" : "2rem",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+                    order: 2,
                   }}
                 >
                   <h3
                     style={{
                       margin: "0 0 1.5rem",
                       color: "#1a1a1a",
-                      fontSize: "1.1rem",
+                      fontSize: isMobileView ? "1rem" : "1.1rem",
                       fontWeight: 600,
                     }}
                   >
@@ -1417,6 +1498,7 @@ export default function CustomerCareDashboardPage() {
                           color: "#aaa",
                           textAlign: "center",
                           padding: "2rem 0",
+                          fontSize: isMobileView ? "0.9rem" : "0.95rem",
                         }}
                       >
                         No questions yet
@@ -1439,17 +1521,19 @@ export default function CustomerCareDashboardPage() {
                               display: "flex",
                               alignItems: "flex-start",
                               justifyContent: "space-between",
-                              gap: "1rem",
+                              gap: isMobileView ? "0.75rem" : "1rem",
+                              flexDirection: isMobileView ? "column" : "row",
                             }}
                           >
-                            <div style={{ flex: 1 }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
                               <p
                                 style={{
                                   margin: 0,
                                   color: "#333",
-                                  fontSize: "0.95rem",
+                                  fontSize: isMobileView ? "0.9rem" : "0.95rem",
                                   fontWeight: 500,
                                   lineHeight: 1.4,
+                                  wordBreak: "break-word",
                                 }}
                               >
                                 {question.text}
@@ -1475,6 +1559,7 @@ export default function CustomerCareDashboardPage() {
                                 fontSize: "0.75rem",
                                 fontWeight: 600,
                                 flexShrink: 0,
+                                whiteSpace: "nowrap",
                               }}
                             >
                               {question.views} msg
@@ -1567,6 +1652,37 @@ export default function CustomerCareDashboardPage() {
                       fontSize: "1.2rem",
                       cursor: "pointer",
                       color: "#856404",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {successMessage && (
+                <div
+                  style={{
+                    background: "#d4edda",
+                    border: "1px solid #28a745",
+                    borderRadius: "8px",
+                    padding: "1rem",
+                    marginBottom: "2rem",
+                    color: "#155724",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>✓ {successMessage}</div>
+                  <button
+                    onClick={() => setSuccessMessage("")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      fontSize: "1.2rem",
+                      cursor: "pointer",
+                      color: "#155724",
                     }}
                   >
                     ✕
@@ -1757,7 +1873,7 @@ export default function CustomerCareDashboardPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
+                      gridTemplateColumns: isMobileView ? "1fr" : "1fr 1fr",
                       gap: "1.5rem",
                     }}
                   >
@@ -1882,7 +1998,7 @@ export default function CustomerCareDashboardPage() {
                   <div
                     style={{
                       display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr 1fr",
+                      gridTemplateColumns: isMobileView ? "1fr" : "1fr 1fr 1fr 1fr",
                       gap: "1.5rem",
                     }}
                   >
@@ -1980,7 +2096,7 @@ export default function CustomerCareDashboardPage() {
                             validFrom: e.target.value,
                           })
                         }
-                        min={todayDate}
+                        min={editingOfferId ? "" : todayDate}
                         style={{
                           width: "100%",
                           padding: "0.85rem 1rem",
@@ -2015,7 +2131,7 @@ export default function CustomerCareDashboardPage() {
                             validUntil: e.target.value,
                           })
                         }
-                        min={todayDate}
+                        min={editingOfferId ? "" : todayDate}
                         style={{
                           width: "100%",
                           padding: "0.85rem 1rem",
@@ -2189,11 +2305,11 @@ export default function CustomerCareDashboardPage() {
                         background: "#fff",
                         border: "1px solid #e5e5e5",
                         borderRadius: "10px",
-                        padding: "1.5rem",
+                        padding: isMobileView ? "1.25rem" : "1.5rem",
                         display: "grid",
-                        gridTemplateColumns: "1fr auto",
+                        gridTemplateColumns: isMobileView ? "1fr" : "1fr auto",
                         alignItems: "start",
-                        gap: "2rem",
+                        gap: isMobileView ? "1.5rem" : "2rem",
                         boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
                         transition: "all 0.3s ease",
                       }}
@@ -2330,8 +2446,9 @@ export default function CustomerCareDashboardPage() {
                         style={{
                           display: "flex",
                           gap: "0.8rem",
-                          flexDirection: "column",
-                          minWidth: "130px",
+                          flexDirection: isMobileView ? "row" : "column",
+                          minWidth: isMobileView ? "auto" : "130px",
+                          width: isMobileView ? "100%" : "auto",
                         }}
                       >
                         <button
@@ -2424,13 +2541,13 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     margin: "0 0 0.5rem",
                     color: "#FFFFFF",
-                    fontSize: "2rem",
+                    fontSize: isMobileView ? "1.5rem" : "2rem",
                     fontWeight: 700,
                   }}
                 >
                   Customer Messages
                 </h2>
-                <p style={{ margin: 0, color: "#666", fontSize: "0.95rem" }}>
+                <p style={{ margin: 0, color: "#666", fontSize: isMobileView ? "0.85rem" : "0.95rem" }}>
                   Manage customer inquiries and provide support
                 </p>
               </div>
@@ -2438,9 +2555,9 @@ export default function CustomerCareDashboardPage() {
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "320px 1fr",
-                  gap: "2rem",
-                  minHeight: "600px",
+                  gridTemplateColumns: isMobileView ? "1fr" : "280px 1fr",
+                  gap: isMobileView ? "1rem" : "2rem",
+                  minHeight: isMobileView ? "auto" : "600px",
                 }}
               >
                 {/* Chat List Sidebar */}
@@ -2457,7 +2574,7 @@ export default function CustomerCareDashboardPage() {
                 >
                   <div
                     style={{
-                      padding: "1.5rem",
+                      padding: isMobileView ? "1.25rem" : "1.5rem",
                       borderBottom: "1px solid #e5e5e5",
                       background: "#f9f9f9",
                     }}
@@ -2466,7 +2583,7 @@ export default function CustomerCareDashboardPage() {
                       style={{
                         margin: 0,
                         color: "#1a1a1a",
-                        fontSize: "1rem",
+                        fontSize: isMobileView ? "0.95rem" : "1rem",
                         fontWeight: 600,
                       }}
                     >
@@ -2476,7 +2593,7 @@ export default function CustomerCareDashboardPage() {
                       style={{
                         margin: "0.3rem 0 0",
                         color: "#888",
-                        fontSize: "0.85rem",
+                        fontSize: "0.8rem",
                       }}
                     >
                       {chats.length} {chats.length === 1 ? "chat" : "chats"}
@@ -2487,9 +2604,9 @@ export default function CustomerCareDashboardPage() {
                     style={{
                       flex: 1,
                       overflowY: "auto",
-                      padding: "0.8rem",
+                      padding: isMobileView ? "0.6rem" : "0.8rem",
                       display: "grid",
-                      gap: "0.6rem",
+                      gap: isMobileView ? "0.5rem" : "0.6rem",
                     }}
                   >
                     {chats.length === 0 ? (
@@ -2604,7 +2721,7 @@ export default function CustomerCareDashboardPage() {
                     {/* Chat Header */}
                     <div
                       style={{
-                        padding: "1.5rem",
+                        padding: isMobileView ? "1.25rem" : "1.5rem",
                         borderBottom: "1px solid #e5e5e5",
                         background:
                           "linear-gradient(135deg, #6f0022 0%, #8b0033 100%)",
@@ -2615,6 +2732,8 @@ export default function CustomerCareDashboardPage() {
                           display: "flex",
                           alignItems: "start",
                           justifyContent: "space-between",
+                          gap: isMobileView ? "1rem" : "0",
+                          flexDirection: isMobileView ? "column" : "row",
                         }}
                       >
                         <div>
@@ -2622,7 +2741,7 @@ export default function CustomerCareDashboardPage() {
                             style={{
                               margin: 0,
                               color: "#fff",
-                              fontSize: "1.2rem",
+                              fontSize: isMobileView ? "1rem" : "1.2rem",
                               fontWeight: 600,
                             }}
                           >
@@ -2638,7 +2757,7 @@ export default function CustomerCareDashboardPage() {
                             {selectedChat.customerEmail}
                           </p>
                         </div>
-                        <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <div style={{ display: "flex", gap: "0.5rem", flexWrap: isMobileView ? "wrap" : "nowrap" }}>
                           {["active", "pending", "resolved"].map((status) => (
                             <button
                               key={status}
@@ -2687,10 +2806,10 @@ export default function CustomerCareDashboardPage() {
                       style={{
                         flex: 1,
                         overflowY: "auto",
-                        padding: "1.5rem",
+                        padding: isMobileView ? "1rem" : "1.5rem",
                         display: "flex",
                         flexDirection: "column",
-                        gap: "1rem",
+                        gap: isMobileView ? "0.75rem" : "1rem",
                       }}
                     >
                       {chatMessages.length === 0 ? (
@@ -2726,11 +2845,11 @@ export default function CustomerCareDashboardPage() {
                             >
                               <div
                                 style={{
-                                  maxWidth: "70%",
+                                  maxWidth: isMobileView ? "85%" : "70%",
                                   background: isStaff ? "#6f0022" : "#f0f0f0",
                                   color: isStaff ? "#fff" : "#333",
                                   borderRadius: "12px",
-                                  padding: "1rem",
+                                  padding: isMobileView ? "0.85rem" : "1rem",
                                   boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
                                 }}
                               >
@@ -2812,11 +2931,11 @@ export default function CustomerCareDashboardPage() {
                     {/* Reply Box */}
                     <div
                       style={{
-                        padding: "1.5rem",
+                        padding: isMobileView ? "1rem" : "1.5rem",
                         borderTop: "1px solid #e5e5e5",
                         background: "#f9f9f9",
                         display: "grid",
-                        gap: "1rem",
+                        gap: "0.75rem",
                       }}
                     >
                       <textarea
@@ -3344,23 +3463,85 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     margin: "0 0 0.5rem",
                     color: "#FFFFFF",
-                    fontSize: "2rem",
+                    fontSize: isMobileView ? "1.5rem" : "2rem",
                     fontWeight: 700,
                   }}
                 >
                   Appointment Slots Management
                 </h2>
-                <p style={{ margin: 0, color: "#666", fontSize: "0.95rem" }}>
+                <p style={{ margin: 0, color: "#666", fontSize: isMobileView ? "0.85rem" : "0.95rem" }}>
                   Create, manage, and track appointment slots
                 </p>
               </div>
+
+              {/* Error Message */}
+              {error && (
+                <div
+                  style={{
+                    background: "#fff3cd",
+                    border: "1px solid #ffc107",
+                    borderRadius: "8px",
+                    padding: "1rem",
+                    marginBottom: "2rem",
+                    color: "#856404",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>⚠ {error}</div>
+                  <button
+                    onClick={() => setError("")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      fontSize: "1.2rem",
+                      cursor: "pointer",
+                      color: "#856404",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+
+              {/* Success Message */}
+              {successMessage && (
+                <div
+                  style={{
+                    background: "#d4edda",
+                    border: "1px solid #28a745",
+                    borderRadius: "8px",
+                    padding: "1rem",
+                    marginBottom: "2rem",
+                    color: "#155724",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>✓ {successMessage}</div>
+                  <button
+                    onClick={() => setSuccessMessage("")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      fontSize: "1.2rem",
+                      cursor: "pointer",
+                      color: "#155724",
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
 
               {/* Stats Cards */}
               <div
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                  gap: "1.5rem",
+                  gridTemplateColumns: isMobileView ? "1fr 1fr" : "repeat(auto-fit, minmax(200px, 1fr))",
+                  gap: isMobileView ? "1rem" : "1.5rem",
                   marginBottom: "2rem",
                 }}
               >
@@ -3368,7 +3549,7 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     background: "#800020",
                     borderRadius: "10px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
                   }}
@@ -3377,7 +3558,7 @@ export default function CustomerCareDashboardPage() {
                     style={{
                       margin: 0,
                       color: "#d4af37",
-                      fontSize: "0.85rem",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
                   >
@@ -3386,7 +3567,7 @@ export default function CustomerCareDashboardPage() {
                   <h3
                     style={{
                       margin: "0.8rem 0 0",
-                      fontSize: "2rem",
+                      fontSize: isMobileView ? "1.5rem" : "2rem",
                       fontWeight: 700,
                       color: "#d4af37",
                     }}
@@ -3398,7 +3579,7 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     background: "#800020",
                     borderRadius: "10px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
                   }}
@@ -3407,7 +3588,7 @@ export default function CustomerCareDashboardPage() {
                     style={{
                       margin: 0,
                       color: "#d4af37",
-                      fontSize: "0.85rem",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
                   >
@@ -3416,7 +3597,7 @@ export default function CustomerCareDashboardPage() {
                   <h3
                     style={{
                       margin: "0.8rem 0 0",
-                      fontSize: "2rem",
+                      fontSize: isMobileView ? "1.5rem" : "2rem",
                       fontWeight: 700,
                       color: "#d4af37",
                     }}
@@ -3428,7 +3609,7 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     background: "#800020",
                     borderRadius: "10px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
                   }}
@@ -3437,7 +3618,7 @@ export default function CustomerCareDashboardPage() {
                     style={{
                       margin: 0,
                       color: "#d4af37",
-                      fontSize: "0.85rem",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
                   >
@@ -3446,7 +3627,7 @@ export default function CustomerCareDashboardPage() {
                   <h3
                     style={{
                       margin: "0.8rem 0 0",
-                      fontSize: "2rem",
+                      fontSize: isMobileView ? "1.5rem" : "2rem",
                       fontWeight: 700,
                       color: "#d4af37",
                     }}
@@ -3458,7 +3639,7 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     background: "#800020",
                     borderRadius: "10px",
-                    padding: "1.5rem",
+                    padding: isMobileView ? "1.25rem" : "1.5rem",
                     color: "#fff",
                     boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
                   }}
@@ -3467,7 +3648,7 @@ export default function CustomerCareDashboardPage() {
                     style={{
                       margin: 0,
                       color: "#d4af37",
-                      fontSize: "0.85rem",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
                   >
@@ -3476,7 +3657,7 @@ export default function CustomerCareDashboardPage() {
                   <h3
                     style={{
                       margin: "0.8rem 0 0",
-                      fontSize: "2rem",
+                      fontSize: isMobileView ? "1.5rem" : "2rem",
                       fontWeight: 700,
                       color: "#d4af37",
                     }}
@@ -3492,7 +3673,7 @@ export default function CustomerCareDashboardPage() {
                   background: "#fff",
                   border: "1px solid #e5e5e5",
                   borderRadius: "12px",
-                  padding: "2rem",
+                  padding: isMobileView ? "1.5rem" : "2rem",
                   marginBottom: "2rem",
                   boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
                 }}
@@ -3501,7 +3682,7 @@ export default function CustomerCareDashboardPage() {
                   style={{
                     margin: "0 0 1.5rem",
                     color: "#1a1a1a",
-                    fontSize: "1.3rem",
+                    fontSize: isMobileView ? "1.1rem" : "1.3rem",
                     fontWeight: 600,
                   }}
                 >
@@ -3511,184 +3692,178 @@ export default function CustomerCareDashboardPage() {
                   onSubmit={createOrUpdateSlot}
                   style={{ display: "grid", gap: "1.5rem" }}
                 >
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr 1fr",
-                      gap: "1.5rem",
-                    }}
-                  >
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          margin: "0 0 0.6rem",
-                          color: "#333",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Date *
-                      </label>
-                      <input
-                        type="date"
-                        value={slotForm.date}
-                        onChange={(e) =>
-                          setSlotForm({ ...slotForm, date: e.target.value })
-                        }
-                        min={todayDate}
-                        style={{
-                          width: "100%",
-                          padding: "0.85rem 1rem",
-                          border: "1px solid #d0d0d0",
-                          borderRadius: "8px",
-                          fontSize: "0.95rem",
-                          boxSizing: "border-box",
-                          background: "#fafbfc",
-                        }}
-                      />
-                    </div>
-                    <div style={{ gridColumn: "2 / 4" }}>
-                      <label
-                        style={{
-                          display: "block",
-                          margin: "0 0 0.6rem",
-                          color: "#333",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Time Slot (7 AM - 10 PM) *
-                      </label>
-                      <select
-                        value={slotForm.timeSlotIndex}
-                        onChange={(e) =>
-                          setSlotForm({
-                            ...slotForm,
-                            timeSlotIndex: parseInt(e.target.value),
-                          })
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "0.85rem 1rem",
-                          border: "1px solid #d0d0d0",
-                          borderRadius: "8px",
-                          fontSize: "0.95rem",
-                          boxSizing: "border-box",
-                          background: "#fafbfc",
-                          cursor: "pointer",
-                          color: "#333",
-                        }}
-                      >
-                        {FIXED_TIME_SLOTS.map((slot, idx) => (
-                          <option key={idx} value={idx}>
-                            {slot.display}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  {/* Date Field */}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        margin: "0 0 0.6rem",
+                        color: "#333",
+                        fontSize: "0.9rem",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={slotForm.date}
+                      onChange={(e) =>
+                        setSlotForm({ ...slotForm, date: e.target.value })
+                      }
+                      min={todayDate}
+                      style={{
+                        width: "100%",
+                        padding: "0.85rem 1rem",
+                        border: "1px solid #d0d0d0",
+                        borderRadius: "8px",
+                        fontSize: "0.95rem",
+                        boxSizing: "border-box",
+                        background: "#fafbfc",
+                      }}
+                    />
+                    <p
+                      style={{
+                        margin: "0.4rem 0 0",
+                        fontSize: "0.75rem",
+                        color: "#666",
+                        fontStyle: "italic",
+                      }}
+                    >
+                      Only current and future dates are allowed
+                    </p>
                   </div>
 
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "1.5rem",
-                    }}
-                  >
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          margin: "0 0 0.6rem",
-                          color: "#333",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Appointment Type
-                      </label>
-                      <select
-                        value={slotForm.type}
-                        onChange={(e) =>
-                          setSlotForm({
-                            ...slotForm,
-                            type: e.target.value,
-                          })
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "0.85rem 1rem",
-                          border: "1px solid #d0d0d0",
-                          borderRadius: "8px",
-                          fontSize: "0.95rem",
-                          boxSizing: "border-box",
-                          background: "#fafbfc",
-                          cursor: "pointer",
-                          color: "#333",
-                        }}
-                      >
-                        {APPOINTMENT_TYPES.map((type) => (
-                          <option key={type} value={type}>
-                            {type}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          margin: "0 0 0.6rem",
-                          color: "#333",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Capacity
-                      </label>
-                      <input
-                        type="number"
-                        value={slotForm.capacity}
-                        onChange={(e) =>
-                          setSlotForm({
-                            ...slotForm,
-                            capacity: parseInt(e.target.value),
-                          })
-                        }
-                        min="1"
-                        style={{
-                          width: "100%",
-                          padding: "0.85rem 1rem",
-                          border: "1px solid #d0d0d0",
-                          borderRadius: "8px",
-                          fontSize: "0.95rem",
-                          boxSizing: "border-box",
-                          background: "#fafbfc",
-                        }}
-                      />
-                    </div>
+                  {/* Time Slot Field */}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        margin: "0 0 0.6rem",
+                        color: "#333",
+                        fontSize: "0.9rem",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Time Slot (7 AM - 10 PM) *
+                    </label>
+                    <select
+                      value={slotForm.timeSlotIndex}
+                      onChange={(e) =>
+                        setSlotForm({
+                          ...slotForm,
+                          timeSlotIndex: parseInt(e.target.value),
+                        })
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "0.85rem 1rem",
+                        border: "1px solid #d0d0d0",
+                        borderRadius: "8px",
+                        fontSize: "0.95rem",
+                        boxSizing: "border-box",
+                        background: "#fafbfc",
+                        cursor: "pointer",
+                        color: "#333",
+                      }}
+                    >
+                      {FIXED_TIME_SLOTS.map((slot, idx) => (
+                        <option key={idx} value={idx}>
+                          {slot.display}
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "1.5rem",
-                    }}
-                  >
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          margin: "0 0 0.6rem",
-                          color: "#333",
-                          fontSize: "0.9rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        Block Slot?
-                      </label>
+                  {/* Appointment Type Field */}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        margin: "0 0 0.6rem",
+                        color: "#333",
+                        fontSize: "0.9rem",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Appointment Type
+                    </label>
+                    <select
+                      value={slotForm.type}
+                      onChange={(e) =>
+                        setSlotForm({
+                          ...slotForm,
+                          type: e.target.value,
+                        })
+                      }
+                      style={{
+                        width: "100%",
+                        padding: "0.85rem 1rem",
+                        border: "1px solid #d0d0d0",
+                        borderRadius: "8px",
+                        fontSize: "0.95rem",
+                        boxSizing: "border-box",
+                        background: "#fafbfc",
+                        cursor: "pointer",
+                        color: "#333",
+                      }}
+                    >
+                      {APPOINTMENT_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Capacity Field */}
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        margin: "0 0 0.6rem",
+                        color: "#333",
+                        fontSize: "0.9rem",
+                        fontWeight: 500,
+                      }}
+                    >
+                      Capacity
+                    </label>
+                    <input
+                      type="number"
+                      value={slotForm.capacity}
+                      onChange={(e) =>
+                        setSlotForm({
+                          ...slotForm,
+                          capacity: parseInt(e.target.value),
+                        })
+                      }
+                      min="1"
+                      style={{
+                        width: "100%",
+                        padding: "0.85rem 1rem",
+                        border: "1px solid #d0d0d0",
+                        borderRadius: "8px",
+                        fontSize: "0.95rem",
+                        boxSizing: "border-box",
+                        background: "#fafbfc",
+                      }}
+                    />
+                  </div>
+
+                  {/* Block Slot Field */}
+                  <div>
+                    <label
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "0.6rem",
+                        color: "#333",
+                        fontSize: "0.9rem",
+                        fontWeight: 500,
+                        cursor: "pointer",
+                      }}
+                    >
                       <input
                         type="checkbox"
                         checked={slotForm.isBlocked}
@@ -3704,51 +3879,55 @@ export default function CustomerCareDashboardPage() {
                           cursor: "pointer",
                         }}
                       />
-                    </div>
-                    {slotForm.isBlocked && (
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            margin: "0 0 0.6rem",
-                            color: "#333",
-                            fontSize: "0.9rem",
-                            fontWeight: 500,
-                          }}
-                        >
-                          Block Reason
-                        </label>
-                        <select
-                          value={slotForm.blockReason}
-                          onChange={(e) =>
-                            setSlotForm({
-                              ...slotForm,
-                              blockReason: e.target.value,
-                            })
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "0.85rem 1rem",
-                            border: "1px solid #d0d0d0",
-                            borderRadius: "8px",
-                            fontSize: "0.95rem",
-                            boxSizing: "border-box",
-                            background: "#fafbfc",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <option value="">Select reason...</option>
-                          {BLOCK_REASONS.map((reason) => (
-                            <option key={reason} value={reason}>
-                              {reason}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
+                      Block Slot?
+                    </label>
                   </div>
 
-                  <div style={{ display: "flex", gap: "1rem" }}>
+                  {/* Block Reason Field */}
+                  {slotForm.isBlocked && (
+                    <div>
+                      <label
+                        style={{
+                          display: "block",
+                          margin: "0 0 0.6rem",
+                          color: "#333",
+                          fontSize: "0.9rem",
+                          fontWeight: 500,
+                        }}
+                      >
+                        Block Reason
+                      </label>
+                      <select
+                        value={slotForm.blockReason}
+                        onChange={(e) =>
+                          setSlotForm({
+                            ...slotForm,
+                            blockReason: e.target.value,
+                          })
+                        }
+                        style={{
+                          width: "100%",
+                          padding: "0.85rem 1rem",
+                          border: "1px solid #d0d0d0",
+                          borderRadius: "8px",
+                          fontSize: "0.95rem",
+                          boxSizing: "border-box",
+                          background: "#fafbfc",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <option value="">Select reason...</option>
+                        {BLOCK_REASONS.map((reason) => (
+                          <option key={reason} value={reason}>
+                            {reason}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div style={{ display: "flex", gap: "1rem", flexWrap: isMobileView ? "wrap" : "nowrap" }}>
                     <button
                       type="submit"
                       style={{
@@ -3761,6 +3940,7 @@ export default function CustomerCareDashboardPage() {
                         fontWeight: 600,
                         cursor: "pointer",
                         transition: "all 0.2s ease",
+                        flex: isMobileView ? "1" : "auto",
                       }}
                       onMouseEnter={(e) =>
                         (e.target.style.background = "#8b0033")
@@ -3796,6 +3976,7 @@ export default function CustomerCareDashboardPage() {
                           fontWeight: 600,
                           cursor: "pointer",
                           transition: "all 0.2s ease",
+                          flex: isMobileView ? "1" : "auto",
                         }}
                         onMouseEnter={(e) =>
                           (e.target.style.background = "#efefef")
