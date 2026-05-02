@@ -93,10 +93,12 @@ app.use(session({
   }),
   cookie: {
     path: '/', // Ensure cookie is sent for all paths on this domain
-    secure: process.env.NODE_ENV === 'production' ? true : false, // Allow non-HTTPS in development
+    // For cross-origin requests (different ports), we need sameSite: 'none'
+    // Modern browsers allow sameSite: 'none' without secure for localhost/development IPs
+    secure: process.env.NODE_ENV === 'production', // true in production, false in development
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    sameSite: 'lax' // 'lax' works for same-site + top-level navigation, 'none' requires secure: true for production
+    sameSite: 'none' // Required for cross-origin cookie sharing (frontend port 5173 → backend port 3000)
   }
 }));
 
