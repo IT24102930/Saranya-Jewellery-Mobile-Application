@@ -3,6 +3,7 @@ import express from 'express';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import cookieParser from 'cookie-parser';
+import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectionDB } from './config/db.js';
@@ -34,6 +35,14 @@ dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.APP_URL,
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
+].filter(Boolean);
 
 const frontendDistDir = path.join(__dirname, '..', 'frontend', 'dist');
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -44,6 +53,10 @@ await connectionDB();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true,
+}));
 
 // Session configuration with MongoDB store for persistence
 app.use(session({
@@ -58,10 +71,10 @@ app.use(session({
     }
   }),
   cookie: {
-    secure: false, // Set to true if using HTTPS in production
+    secure: process.env.NODE_ENV === 'production',
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    sameSite: 'lax' // Protects against CSRF
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Allow cross-site cookies in production
   }
 }));
 
