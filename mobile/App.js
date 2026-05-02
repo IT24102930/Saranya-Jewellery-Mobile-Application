@@ -76,6 +76,24 @@ function isStaffRoute(pathname) {
   return STAFF_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
+const STAFF_PAGE_TITLES = {
+  '/staff-login': 'Staff Login',
+  '/staff-register': 'Staff Register',
+  '/admin-dashboard': 'Admin Dashboard',
+  '/product-management-dashboard': 'Product Management',
+  '/order-management-dashboard': 'Order Management',
+  '/inventory-dashboard': 'Inventory',
+  '/customer-care-dashboard': 'Customer Care',
+  '/loyalty-management-dashboard': 'Loyalty Management'
+};
+
+function getStaffPageTitle(pathname) {
+  if (!pathname) return null;
+  if (STAFF_PAGE_TITLES[pathname]) return STAFF_PAGE_TITLES[pathname];
+  const match = Object.keys(STAFF_PAGE_TITLES).find((prefix) => pathname.startsWith(`${prefix}/`));
+  return match ? STAFF_PAGE_TITLES[match] : null;
+}
+
 function isCustomerBottomRoute(pathname) {
   return CUSTOMER_BOTTOM_ROUTES.includes(pathname);
 }
@@ -369,6 +387,10 @@ export default function App() {
                 }
                 if (isStaffRoute(nextPath)) {
                   setIsProfileScreen(false);
+                  const staffTitle = getStaffPageTitle(nextPath);
+                  if (staffTitle) {
+                    setPageTitle(staffTitle);
+                  }
                 }
 
                 if (webViewRef.current && isCustomerPage(nextPath)) {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiHome, FiUsers, FiTrendingUp, FiLogOut, FiEye, FiDollarSign, FiShield, FiBell, FiShoppingCart, FiPackage, FiCheck, FiClock, FiRefreshCw, FiMenu, FiX } from 'react-icons/fi';
+import { FiHome, FiUsers, FiTrendingUp, FiLogOut, FiEye, FiDollarSign, FiShield, FiBell, FiShoppingCart, FiPackage, FiCheck, FiClock, FiRefreshCw, FiUser } from 'react-icons/fi';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import authManager from '../auth.js';
 
@@ -78,8 +78,6 @@ export default function AdminDashboardPage() {
   const [customerDetailsError, setCustomerDetailsError] = useState('');
   const [customerSearchQuery, setCustomerSearchQuery] = useState('');
   const [customerLoyaltyFilter, setCustomerLoyaltyFilter] = useState('all');
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
 
   const filteredList = useMemo(() => {
     if (statusFilter === 'all') return staffList;
@@ -217,37 +215,6 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     document.title = 'Admin Dashboard - Saranya Jewellery';
   }, []);
-
-  useEffect(() => {
-    function handleResize() {
-      const mobile = window.innerWidth < 1024;
-      setIsMobileView(mobile);
-      if (!mobile) {
-        setIsMobileNavOpen(false);
-      }
-    }
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (!isMobileView || !isMobileNavOpen) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isMobileNavOpen, isMobileView]);
-
-  useEffect(() => {
-    if (isMobileView) {
-      setIsMobileNavOpen(false);
-    }
-  }, [activeSection, isMobileView]);
 
   useEffect(() => {
     if (!isAddStaffModalOpen && !isEditStaffModalOpen) return undefined;
@@ -700,387 +667,253 @@ export default function AdminDashboardPage() {
     { key: 'customers', icon: FiTrendingUp, label: 'Customers' },
     { key: 'banners', icon: FiBell, label: 'Banners' },
     { key: 'customerInsights', icon: FiEye, label: 'Insights' },
-    { key: 'revenueFilters', icon: FiDollarSign, label: 'Revenue' }
+    { key: 'profile', icon: FiUser, label: 'Profile' }
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc', position: 'relative' }}>
-      {isMobileView && (
-        <button
-          type="button"
-          onClick={() => setIsMobileNavOpen((prev) => !prev)}
-          style={{
-            position: 'fixed',
-            top: '1rem',
-            left: '1rem',
-            zIndex: 220,
-            border: 'none',
-            background: '#6f0022',
-            color: '#fff',
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
-            cursor: 'pointer'
-          }}
-          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
-        >
-          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
-        </button>
-      )}
-
-      {isMobileView && isMobileNavOpen && (
-        <div
-          onClick={() => setIsMobileNavOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(23, 12, 18, 0.45)',
-            zIndex: 140
-          }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside style={{
-        width: '320px',
-        background: '#6f0022',
-        color: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        height: '100vh',
-        left: 0,
-        top: 0,
-        zIndex: 200,
-        transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
-        transition: 'transform 0.25s ease',
-        boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
-      }}>
-        {/* Sidebar Header */}
-        <div style={{
-          padding: '2rem 1.5rem 1.5rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <h1 style={{
-            margin: 0,
-            fontSize: '1.2rem',
-            fontFamily: 'Cormorant Garamond, serif',
-            fontWeight: 600,
-            letterSpacing: '0.5px',
-            color: '#e0bf63',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            textTransform: 'uppercase'
-          }}>
-            <FiShield size={28} />
-            Admin Dashboard
-          </h1>
-        </div>
-
-        {/* Navigation Items */}
-        <nav style={{
-          flex: 1,
-          padding: '1.5rem 1rem',
-          overflowY: 'auto'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {navItems.map((item) => {
-              const isActive = activeSection === item.key;
-              const IconComponent = item.icon;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => {
-                    setActiveSection(item.key);
-                    if (isMobileView) {
-                      setIsMobileNavOpen(false);
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    width: '100%',
-                    padding: '1rem 1rem',
-                    background: isActive ? '#e0bf63' : 'transparent',
-                    color: isActive ? '#3d2b00' : '#fff',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: '1.1rem',
-                    fontFamily: 'Poppins, sans-serif',
-                    fontWeight: isActive ? 600 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s',
-                    textAlign: 'left'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(224, 191, 99, 0.1)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
-                >
-                  <IconComponent size={24} style={{ minWidth: '24px' }} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* User Profile Section */}
-        <div style={{
-          padding: '1.5rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem'
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            background: '#e0bf63',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            color: '#3d2b00',
-            flexShrink: 0
-          }}>
-            {staffUser.fullName?.charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>
-              Hello, {staffUser.fullName?.split(' ')[0]}
-            </div>
-          </div>
-          <button
-            onClick={() => authManager.logout()}
-            style={{
-              background: isLogoutHovered ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.2)',
-              color: '#fff',
-              border: 'none',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.2rem',
-              transition: 'background 0.2s',
-              flexShrink: 0
-            }}
-            title="Logout"
-            onMouseEnter={() => setIsLogoutHovered(true)}
-            onMouseLeave={() => setIsLogoutHovered(false)}
-          >
-            <FiLogOut size={20} />
-          </button>
-        </div>
-      </aside>
-
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#fafbfc', position: 'relative' }}>
       {/* Main Content */}
       <main style={{
         flex: 1,
-        marginLeft: isMobileView ? 0 : '320px',
-        padding: isMobileView ? '5rem 1rem 1.25rem' : '2rem',
+        padding: '1.25rem 1rem calc(5.5rem + env(safe-area-inset-bottom, 0px))',
         overflowY: 'auto'
       }}>
 
         {activeSection === 'analytics' && (
         <>
-          {/* Revenue Trend Chart */}
-          <section style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '2rem',
-            border: '1px solid #e9ecef',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-            marginBottom: '2rem'
-          }}>
-            <h3 style={{ margin: '0 0 1.5rem', color: '#6f0022', fontSize: '1.3rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>Revenue Trend (Last 7 Days)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData.revenueTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
-                <XAxis dataKey="date" stroke="#666" />
-                <YAxis stroke="#666" />
-                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '8px' }} />
-                <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#6f0022" strokeWidth={3} dot={{ fill: '#6f0022', r: 5 }} activeDot={{ r: 7 }} name="Daily Revenue (LKR)" />
-              </LineChart>
-            </ResponsiveContainer>
-          </section>
-
-          {/* Charts Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-            {/* Order Status Breakdown */}
-            <section style={{
-              background: '#fff',
-              borderRadius: '12px',
-              padding: '2rem',
-              border: '1px solid #e9ecef',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-            }}>
-              <h3 style={{ margin: '0 0 1.5rem', color: '#6f0022', fontSize: '1.2rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>Order Status Distribution</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie
-                    data={chartData.orderStatusBreakdown}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, value }) => `${name}: ${value}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {chartData.orderStatusBreakdown.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </section>
-
-            {/* Loyalty Tier Distribution */}
-            <section style={{
-              background: '#fff',
-              borderRadius: '12px',
-              padding: '2rem',
-              border: '1px solid #e9ecef',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-            }}>
-              <h3 style={{ margin: '0 0 1.5rem', color: '#6f0022', fontSize: '1.2rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>Customer Loyalty Tiers</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={chartData.loyaltyData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
-                  <XAxis dataKey="name" stroke="#666" />
-                  <YAxis stroke="#666" />
-                  <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '8px' }} />
-                  <Bar dataKey="value" fill="#6f0022" radius={[8, 8, 0, 0]} name="Customer Count" />
-                </BarChart>
-              </ResponsiveContainer>
-            </section>
-          </div>
-
-          {/* Key Statistics */}
+          {/* Highlight Tiles - Income */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-            gap: '1.5rem'
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: '0.75rem',
+            marginBottom: '1rem'
           }}>
             {[
-              { label: 'Total Customers', value: stats.totalCustomers, color: '#6f0022', icon: FiUsers },
-              { label: 'Total Products', value: stats.totalProducts, color: '#0066cc', icon: FiShoppingCart },
-              { label: 'Total Orders', value: stats.totalOrders, color: '#28a745', icon: FiPackage },
-              { label: 'Loyalty Members', value: stats.loyaltyMembers, color: '#e0bf63', icon: FiTrendingUp },
-              { label: 'Total Income', value: `LKR ${(stats.totalIncome || 0).toLocaleString()}`, color: '#ffc107', icon: FiDollarSign },
-              { label: 'This Month Income', value: `LKR ${(stats.monthIncome || 0).toLocaleString()}`, color: '#17a2b8', icon: FiDollarSign },
-              { label: 'This Year Income', value: `LKR ${(stats.yearIncome || 0).toLocaleString()}`, color: '#6f0022', icon: FiDollarSign },
-              { label: 'Completed Orders', value: stats.completedOrders, color: '#28a745', icon: FiCheck },
-              { label: 'Pending Orders', value: stats.pendingOrders, color: '#ffc107', icon: FiClock },
-            { label: 'Total Refunds', value: `LKR ${(stats.totalRefunds || 0).toLocaleString()}`, color: '#dc3545', icon: FiRefreshCw },
-            { label: 'Gold Rate (Today)', value: `LKR ${(stats.goldRate || 0).toLocaleString()}/gram`, color: '#e0bf63', icon: FiTrendingUp },
-            { label: 'Promotions Sent Today', value: stats.promotionsSentToday, color: '#ff6b6b', icon: FiBell }
-          ].map((stat, idx) => {
-            const IconComponent = stat.icon;
-            return (
-            <div
-              key={idx}
-              style={{
-                background: '#fff',
-                borderRadius: '14px',
-                padding: '1.8rem',
-                border: '1px solid #e9ecef',
-                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-6px)';
-                e.currentTarget.style.boxShadow = '0 12px 24px rgba(0, 0, 0, 0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.08)';
-              }}
-            >
-              {/* Color accent top border */}
-              <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '4px',
-                background: stat.color,
-                borderRadius: '14px 14px 0 0'
-              }} />
-              
-              {/* Content */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem' }}>
-                <div style={{ flex: 1 }}>
+              { label: 'Today Income', value: stats.totalIncome, color: '#6f0022', icon: FiDollarSign },
+              { label: 'This Month', value: stats.monthIncome, color: '#17a2b8', icon: FiDollarSign },
+              { label: 'This Year', value: stats.yearIncome, color: '#28a745', icon: FiTrendingUp },
+              { label: 'Refunds', value: stats.totalRefunds, color: '#dc3545', icon: FiRefreshCw }
+            ].map((tile, idx) => {
+              const IconComponent = tile.icon;
+              return (
+                <div key={idx} style={{
+                  background: '#fff',
+                  borderRadius: '14px',
+                  padding: '0.95rem',
+                  border: '1px solid #e9ecef',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}>
+                  <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: '3px',
+                    background: tile.color
+                  }} />
+                  <div style={{
+                    width: '34px',
+                    height: '34px',
+                    borderRadius: '10px',
+                    background: `${tile.color}15`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '0.5rem'
+                  }}>
+                    <IconComponent size={18} color={tile.color} strokeWidth={2.2} />
+                  </div>
                   <p style={{
-                    margin: '0.5rem 0 0',
-                    color: '#666',
-                    fontSize: '0.95rem',
+                    margin: 0,
+                    color: '#6b7280',
+                    fontSize: '0.72rem',
                     fontWeight: 500,
                     letterSpacing: '0.3px',
                     textTransform: 'uppercase'
                   }}>
-                    {stat.label}
+                    {tile.label}
                   </p>
-                  <h2 style={{
-                    margin: '0.8rem 0 0',
-                    color: stat.color,
-                    fontSize: '1.8rem',
+                  <h3 style={{
+                    margin: '0.25rem 0 0',
+                    color: tile.color,
+                    fontSize: '1rem',
                     fontWeight: 700,
                     wordBreak: 'break-word',
                     lineHeight: 1.2
                   }}>
-                    {stat.value}
-                  </h2>
+                    LKR {(tile.value || 0).toLocaleString()}
+                  </h3>
                 </div>
-                
-                {/* Icon badge */}
-                <div style={{
-                  width: '60px',
-                  height: '60px',
-                  borderRadius: '14px',
-                  background: `${stat.color}15`,
-                  border: `2px solid ${stat.color}30`,
+              );
+            })}
+          </div>
+
+          {/* Quick Stats */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+            gap: '0.75rem',
+            marginBottom: '1.25rem'
+          }}>
+            {[
+              { label: 'Customers', value: stats.totalCustomers, color: '#6f0022', icon: FiUsers },
+              { label: 'Products', value: stats.totalProducts, color: '#0066cc', icon: FiShoppingCart },
+              { label: 'Orders', value: stats.totalOrders, color: '#28a745', icon: FiPackage },
+              { label: 'Loyalty', value: stats.loyaltyMembers, color: '#e0bf63', icon: FiTrendingUp },
+              { label: 'Completed', value: stats.completedOrders, color: '#28a745', icon: FiCheck },
+              { label: 'Pending', value: stats.pendingOrders, color: '#ffc107', icon: FiClock },
+              { label: 'Promotions', value: stats.promotionsSentToday, color: '#ff6b6b', icon: FiBell },
+              { label: 'Gold/g', value: `LKR ${(stats.goldRate || 0).toLocaleString()}`, color: '#e0bf63', icon: FiTrendingUp }
+            ].map((stat, idx) => {
+              const IconComponent = stat.icon;
+              return (
+                <div key={idx} style={{
+                  background: '#fff',
+                  borderRadius: '12px',
+                  padding: '0.85rem',
+                  border: '1px solid #e9ecef',
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0
+                  gap: '0.7rem'
                 }}>
-                  <IconComponent size={28} color={stat.color} strokeWidth={2} />
+                  <div style={{
+                    width: '38px',
+                    height: '38px',
+                    borderRadius: '10px',
+                    background: `${stat.color}15`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    <IconComponent size={20} color={stat.color} strokeWidth={2.2} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{
+                      margin: 0,
+                      color: '#6b7280',
+                      fontSize: '0.7rem',
+                      fontWeight: 500,
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {stat.label}
+                    </p>
+                    <h4 style={{
+                      margin: '0.1rem 0 0',
+                      color: '#1f2937',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      lineHeight: 1.2,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {stat.value}
+                    </h4>
+                  </div>
                 </div>
-              </div>
-            </div>
-            );
-          })}
+              );
+            })}
           </div>
+
+          {/* Revenue Trend Chart */}
+          <section style={{
+            background: '#fff',
+            borderRadius: '14px',
+            padding: '1.1rem 0.85rem',
+            border: '1px solid #e9ecef',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+            marginBottom: '1rem'
+          }}>
+            <h3 style={{
+              margin: '0 0 0.85rem 0.4rem',
+              color: '#6f0022',
+              fontSize: '1.05rem',
+              fontFamily: 'Cormorant Garamond, serif',
+              fontWeight: 600
+            }}>
+              Revenue Trend (7 Days)
+            </h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData.revenueTrend} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
+                <XAxis dataKey="date" stroke="#666" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#666" tick={{ fontSize: 11 }} width={45} />
+                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '8px', fontSize: '0.85rem' }} />
+                <Line type="monotone" dataKey="revenue" stroke="#6f0022" strokeWidth={2.5} dot={{ fill: '#6f0022', r: 3 }} activeDot={{ r: 6 }} name="LKR" />
+              </LineChart>
+            </ResponsiveContainer>
+          </section>
+
+          {/* Order Status */}
+          <section style={{
+            background: '#fff',
+            borderRadius: '14px',
+            padding: '1.1rem 0.85rem',
+            border: '1px solid #e9ecef',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+            marginBottom: '1rem'
+          }}>
+            <h3 style={{
+              margin: '0 0 0.85rem 0.4rem',
+              color: '#6f0022',
+              fontSize: '1.05rem',
+              fontFamily: 'Cormorant Garamond, serif',
+              fontWeight: 600
+            }}>
+              Order Status
+            </h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <PieChart>
+                <Pie
+                  data={chartData.orderStatusBreakdown}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ name, value }) => `${name}: ${value}`}
+                  outerRadius={70}
+                  dataKey="value"
+                >
+                  {chartData.orderStatusBreakdown.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.fill} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={{ fontSize: '0.85rem' }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </section>
+
+          {/* Loyalty Tiers */}
+          <section style={{
+            background: '#fff',
+            borderRadius: '14px',
+            padding: '1.1rem 0.85rem',
+            border: '1px solid #e9ecef',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
+          }}>
+            <h3 style={{
+              margin: '0 0 0.85rem 0.4rem',
+              color: '#6f0022',
+              fontSize: '1.05rem',
+              fontFamily: 'Cormorant Garamond, serif',
+              fontWeight: 600
+            }}>
+              Loyalty Tiers
+            </h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={chartData.loyaltyData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e9ecef" />
+                <XAxis dataKey="name" stroke="#666" tick={{ fontSize: 11 }} />
+                <YAxis stroke="#666" tick={{ fontSize: 11 }} width={35} />
+                <Tooltip contentStyle={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '8px', fontSize: '0.85rem' }} />
+                <Bar dataKey="value" fill="#6f0022" radius={[6, 6, 0, 0]} name="Customers" />
+              </BarChart>
+            </ResponsiveContainer>
+          </section>
         </>
         )}
 
@@ -1088,123 +921,202 @@ export default function AdminDashboardPage() {
           <>
             <section style={{
               background: '#fff',
-              borderRadius: '12px',
-              padding: '2rem',
+              borderRadius: '14px',
+              padding: '1rem',
               border: '1px solid #e9ecef',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-              marginBottom: '2rem'
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              marginBottom: '1rem'
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                <div>
-                  <h3 style={{ margin: 0, color: '#6f0022', fontSize: '1.4rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>Site Banners</h3>
-                  <p style={{ margin: '0.35rem 0 0', color: '#666', fontSize: '0.95rem' }}>Manage promotional banners displayed on the home page.</p>
-                </div>
-                <button type="button" onClick={() => { setError(''); setBannerForm({ message: '', type: 'info', backgroundColor: '#fff3cd', textColor: '#856404', startDate: '', endDate: '' }); setIsAddBannerModalOpen(true); }} style={{ background: '#6f0022', color: '#fff', border: 'none', padding: '0.85rem 1.35rem', borderRadius: '999px', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', boxShadow: '0 8px 16px rgba(111, 0, 34, 0.18)', transition: 'transform 0.2s, background 0.2s' }} onMouseEnter={(e) => { e.target.style.background = '#4f0018'; e.target.style.transform = 'translateY(-1px)'; }} onMouseLeave={(e) => { e.target.style.background = '#6f0022'; e.target.style.transform = 'translateY(0)'; }}>Create Banner</button>
-              </div>
+              <h3 style={{ margin: 0, color: '#6f0022', fontSize: '1.2rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>
+                Site Banners
+              </h3>
+              <p style={{ margin: '0.25rem 0 0.85rem', color: '#6b7280', fontSize: '0.85rem' }}>
+                Manage promotional banners on the home page.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setError(''); setBannerForm({ message: '', type: 'info', backgroundColor: '#fff3cd', textColor: '#856404', startDate: '', endDate: '' }); setIsAddBannerModalOpen(true); }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  width: '100%',
+                  background: '#6f0022',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '10px',
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 6px 14px rgba(111, 0, 34, 0.18)'
+                }}
+              >
+                <FiBell size={18} />
+                Create Banner
+              </button>
             </section>
 
             {error && activeSection === 'banners' && (
-              <div style={{ background: '#f8d7da', border: '1px solid #f5c6cb', color: '#721c24', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem' }}>
+              <div style={{ background: '#f8d7da', border: '1px solid #f5c6cb', color: '#721c24', padding: '0.75rem 0.85rem', borderRadius: '10px', marginBottom: '1rem', fontSize: '0.85rem' }}>
                 {error}
               </div>
             )}
 
-            <section style={{ background: '#fff', borderRadius: '12px', padding: '2rem', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }}>
-              <h4 style={{ margin: '0 0 1rem', color: '#333' }}>All Banners ({banners.length})</h4>
-              
+            <section style={{
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '1rem',
+              border: '1px solid #e9ecef',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
+                <h4 style={{ margin: 0, color: '#6f0022', fontSize: '1.05rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>
+                  All Banners
+                </h4>
+                <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 500 }}>
+                  {banners.length}
+                </span>
+              </div>
+
               {banners.length === 0 ? (
-                <div style={{ padding: '2rem', textAlign: 'center', color: '#999' }}>
+                <div style={{
+                  padding: '2rem 1rem',
+                  textAlign: 'center',
+                  color: '#9ca3af',
+                  fontSize: '0.9rem',
+                  border: '1px dashed #e5e7eb',
+                  borderRadius: '12px'
+                }}>
                   No banners yet. Create one to get started.
                 </div>
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.92rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #e9ecef', background: '#f8f9fa' }}>
-                        <th style={{ padding: '1rem', textAlign: 'left', color: '#333', fontWeight: 600 }}>Message</th>
-                        <th style={{ padding: '1rem', textAlign: 'left', color: '#333', fontWeight: 600 }}>Type</th>
-                        <th style={{ padding: '1rem', textAlign: 'center', color: '#333', fontWeight: 600 }}>Active</th>
-                        <th style={{ padding: '1rem', textAlign: 'left', color: '#333', fontWeight: 600 }}>Date Range</th>
-                        <th style={{ padding: '1rem', textAlign: 'center', color: '#333', fontWeight: 600 }}>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {banners.map((banner) => (
-                        <tr key={banner._id} style={{ borderBottom: '1px solid #e9ecef', background: '#fff' }}>
-                          <td style={{ padding: '1rem', color: '#333', maxWidth: '250px', wordBreak: 'break-word' }}>{banner.message}</td>
-                          <td style={{ padding: '1rem' }}>
-                            <span style={{ background: '#e7f3ff', color: '#0066cc', padding: '0.35rem 0.7rem', borderRadius: '4px', fontWeight: 600, fontSize: '0.8rem', display: 'inline-block' }}>
-                              {banner.type}
-                            </span>
-                          </td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => toggleBannerActive(banner._id, banner.isActive)}
-                              disabled={isBannerBusy === banner._id}
-                              style={{
-                                background: banner.isActive ? '#28a745' : '#dc3545',
-                                color: '#fff',
-                                border: 'none',
-                                padding: '0.4rem 0.8rem',
-                                borderRadius: '4px',
-                                fontWeight: 600,
-                                fontSize: '0.8rem',
-                                cursor: isBannerBusy === banner._id ? 'not-allowed' : 'pointer',
-                                opacity: isBannerBusy === banner._id ? 0.6 : 1,
-                                transition: 'background 0.2s'
-                              }}
-                              title={banner.isActive ? 'Click to deactivate' : 'Click to activate'}
-                            >
-                              {banner.isActive ? 'Active' : 'Inactive'}
-                            </button>
-                          </td>
-                          <td style={{ padding: '1rem', fontSize: '0.9rem', color: '#666' }}>
-                            {banner.startDate ? new Date(banner.startDate).toLocaleDateString() : 'Now'} to {banner.endDate ? new Date(banner.endDate).toLocaleDateString() : 'No end'}
-                          </td>
-                          <td style={{ padding: '1rem', textAlign: 'center' }}>
-                            <button 
-                              type="button" 
-                              onClick={() => openEditBannerModal(banner)} 
-                              disabled={isBannerBusy === banner._id} 
-                              style={{ 
-                                background: '#0066cc', 
-                                color: '#fff', 
-                                border: 'none', 
-                                padding: '0.5rem 1rem', 
-                                borderRadius: '4px', 
-                                cursor: isBannerBusy === banner._id ? 'not-allowed' : 'pointer', 
-                                marginRight: '0.5rem', 
-                                fontSize: '0.85rem',
-                                fontWeight: 500,
-                                opacity: isBannerBusy === banner._id ? 0.6 : 1
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button 
-                              type="button" 
-                              onClick={() => deleteBanner(banner._id)} 
-                              disabled={isBannerBusy === banner._id} 
-                              style={{ 
-                                background: '#dc3545', 
-                                color: '#fff', 
-                                border: 'none', 
-                                padding: '0.5rem 1rem', 
-                                borderRadius: '4px', 
-                                cursor: isBannerBusy === banner._id ? 'not-allowed' : 'pointer', 
-                                fontSize: '0.85rem',
-                                fontWeight: 500,
-                                opacity: isBannerBusy === banner._id ? 0.6 : 1
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+                  {banners.map((banner) => {
+                    const startLabel = banner.startDate ? new Date(banner.startDate).toLocaleDateString() : 'Now';
+                    const endLabel = banner.endDate ? new Date(banner.endDate).toLocaleDateString() : 'No end';
+                    const busy = isBannerBusy === banner._id;
+                    return (
+                      <div
+                        key={banner._id}
+                        style={{
+                          border: '1px solid #e9ecef',
+                          borderRadius: '12px',
+                          padding: '0.85rem',
+                          background: '#fafbfc'
+                        }}
+                      >
+                        {/* Banner preview */}
+                        <div style={{
+                          background: banner.backgroundColor || '#fff3cd',
+                          color: banner.textColor || '#856404',
+                          padding: '0.7rem 0.85rem',
+                          borderRadius: '8px',
+                          fontSize: '0.85rem',
+                          fontWeight: 500,
+                          marginBottom: '0.7rem',
+                          wordBreak: 'break-word',
+                          lineHeight: 1.4
+                        }}>
+                          {banner.message}
+                        </div>
+
+                        {/* Meta chips */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.7rem' }}>
+                          <span style={{
+                            background: '#e7f3ff',
+                            color: '#0066cc',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '999px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            textTransform: 'capitalize'
+                          }}>
+                            {banner.type}
+                          </span>
+                          <span style={{
+                            background: banner.isActive ? '#d4edda' : '#f8d7da',
+                            color: banner.isActive ? '#155724' : '#721c24',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '999px',
+                            fontSize: '0.72rem',
+                            fontWeight: 600
+                          }}>
+                            {banner.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                          <span style={{
+                            background: '#f1f5f9',
+                            color: '#475569',
+                            padding: '0.25rem 0.6rem',
+                            borderRadius: '999px',
+                            fontSize: '0.72rem',
+                            fontWeight: 500
+                          }}>
+                            {startLabel} → {endLabel}
+                          </span>
+                        </div>
+
+                        {/* Actions */}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => toggleBannerActive(banner._id, banner.isActive)}
+                            disabled={busy}
+                            style={{
+                              padding: '0.55rem',
+                              border: 'none',
+                              background: banner.isActive ? '#dc3545' : '#28a745',
+                              color: '#fff',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: busy ? 'not-allowed' : 'pointer',
+                              opacity: busy ? 0.6 : 1
+                            }}
+                          >
+                            {banner.isActive ? 'Disable' : 'Enable'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => openEditBannerModal(banner)}
+                            disabled={busy}
+                            style={{
+                              padding: '0.55rem',
+                              border: '1px solid #0066cc',
+                              background: '#fff',
+                              color: '#0066cc',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: busy ? 'not-allowed' : 'pointer',
+                              opacity: busy ? 0.6 : 1
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => deleteBanner(banner._id)}
+                            disabled={busy}
+                            style={{
+                              padding: '0.55rem',
+                              border: '1px solid #dc3545',
+                              background: '#fff',
+                              color: '#dc3545',
+                              borderRadius: '8px',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: busy ? 'not-allowed' : 'pointer',
+                              opacity: busy ? 0.6 : 1
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </section>
@@ -1340,106 +1252,259 @@ export default function AdminDashboardPage() {
         )}
 
         {activeSection === 'customerInsights' && (
-          <section style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '2rem',
-            border: '1px solid #e9ecef',
-            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
-          }}>
-            <h3 style={{ margin: 0, color: '#6f0022', fontSize: '1.4rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>
-              Customer Insights Panel
-            </h3>
-            <p style={{ margin: '0.35rem 0 1.2rem', color: '#666', fontSize: '0.95rem' }}>
-              Top spenders, loyalty split, and customers at risk of inactivity.
-            </p>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.9rem', marginBottom: '1rem' }}>
-              <div style={{ background: '#f8fafc', border: '1px solid #e9ecef', borderRadius: '10px', padding: '0.9rem' }}><strong>Standard:</strong> {customerInsights.loyaltyBreakdown.standard}</div>
-              <div style={{ background: '#f8fafc', border: '1px solid #e9ecef', borderRadius: '10px', padding: '0.9rem' }}><strong>Silver:</strong> {customerInsights.loyaltyBreakdown.silver}</div>
-              <div style={{ background: '#f8fafc', border: '1px solid #e9ecef', borderRadius: '10px', padding: '0.9rem' }}><strong>Gold:</strong> {customerInsights.loyaltyBreakdown.gold}</div>
-              <div style={{ background: '#f8fafc', border: '1px solid #e9ecef', borderRadius: '10px', padding: '0.9rem' }}><strong>Platinum:</strong> {customerInsights.loyaltyBreakdown.platinum}</div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
-              <div style={{ border: '1px solid #e9ecef', borderRadius: '10px', padding: '1rem' }}>
-                <h4 style={{ margin: '0 0 0.8rem', color: '#6f0022' }}>Top Spenders</h4>
-                {customerInsights.topSpenders.map((customer) => (
-                  <div key={customer._id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 0', borderBottom: '1px solid #f1f3f5' }}>
-                    <span>{customer.fullName}</span>
-                    <strong>LKR {Math.round(customer.computedSpend || 0).toLocaleString()}</strong>
-                  </div>
-                ))}
-                {customerInsights.topSpenders.length === 0 && <p style={{ color: '#888', margin: 0 }}>No spender insights yet.</p>}
-              </div>
-            </div>
-          </section>
-        )}
-
-        {activeSection === 'staff' && (
-        <>
-        {/* Create Staff Section */}
-        <section style={{
-          background: '#fff',
-          borderRadius: '12px',
-          padding: '2rem',
-          border: '1px solid #e9ecef',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-          marginBottom: '2rem'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
-            <div>
+          <>
+            {/* Header */}
+            <section style={{
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '1rem',
+              border: '1px solid #e9ecef',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              marginBottom: '1rem'
+            }}>
               <h3 style={{
                 margin: 0,
                 color: '#6f0022',
-                fontSize: '1.4rem',
+                fontSize: '1.2rem',
                 fontFamily: 'Cormorant Garamond, serif',
                 fontWeight: 600
               }}>
-                Staff Management
+                Customer Insights
               </h3>
-              <p style={{ margin: '0.35rem 0 0', color: '#666', fontSize: '0.95rem' }}>
-                Add and manage staff accounts from one place.
+              <p style={{ margin: '0.25rem 0 0', color: '#6b7280', fontSize: '0.85rem' }}>
+                Top spenders and loyalty distribution.
               </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setError('');
-                setIsAddStaffModalOpen(true);
-              }}
-              style={{
-                background: '#6f0022',
-                color: '#fff',
-                border: 'none',
-                padding: '0.85rem 1.35rem',
-                borderRadius: '999px',
+            </section>
+
+            {/* Loyalty Breakdown */}
+            <section style={{
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '1rem',
+              border: '1px solid #e9ecef',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              marginBottom: '1rem'
+            }}>
+              <h4 style={{
+                margin: '0 0 0.7rem',
+                color: '#6f0022',
+                fontSize: '0.78rem',
                 fontWeight: 700,
-                fontSize: '0.95rem',
-                cursor: 'pointer',
-                boxShadow: '0 8px 16px rgba(111, 0, 34, 0.18)',
-                transition: 'transform 0.2s, background 0.2s'
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = '#4f0018';
-                e.target.style.transform = 'translateY(-1px)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = '#6f0022';
-                e.target.style.transform = 'translateY(0)';
-              }}
-            >
-              Add New Staff Member
-            </button>
-          </div>
+                letterSpacing: '0.6px',
+                textTransform: 'uppercase'
+              }}>
+                Loyalty Breakdown
+              </h4>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: '0.55rem'
+              }}>
+                {[
+                  { label: 'Standard', value: customerInsights.loyaltyBreakdown.standard, color: '#6f0022', bg: '#fce7eb' },
+                  { label: 'Silver', value: customerInsights.loyaltyBreakdown.silver, color: '#475569', bg: '#f1f5f9' },
+                  { label: 'Gold', value: customerInsights.loyaltyBreakdown.gold, color: '#92400e', bg: '#fef3c7' },
+                  { label: 'Platinum', value: customerInsights.loyaltyBreakdown.platinum, color: '#3d5a80', bg: '#e0e7ff' }
+                ].map((tier, idx) => (
+                  <div key={idx} style={{
+                    background: '#fafbfc',
+                    border: '1px solid #e9ecef',
+                    borderRadius: '12px',
+                    padding: '0.75rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.65rem'
+                  }}>
+                    <div style={{
+                      width: '36px',
+                      height: '36px',
+                      borderRadius: '10px',
+                      background: tier.bg,
+                      color: tier.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      flexShrink: 0
+                    }}>
+                      {tier.label.charAt(0)}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{
+                        margin: 0,
+                        color: '#6b7280',
+                        fontSize: '0.7rem',
+                        fontWeight: 500,
+                        letterSpacing: '0.3px',
+                        textTransform: 'uppercase'
+                      }}>
+                        {tier.label}
+                      </p>
+                      <p style={{
+                        margin: '0.1rem 0 0',
+                        color: '#1f2937',
+                        fontSize: '1.05rem',
+                        fontWeight: 700,
+                        lineHeight: 1.1
+                      }}>
+                        {tier.value}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Top Spenders */}
+            <section style={{
+              background: '#fff',
+              borderRadius: '14px',
+              padding: '1rem',
+              border: '1px solid #e9ecef',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
+            }}>
+              <h4 style={{
+                margin: '0 0 0.7rem',
+                color: '#6f0022',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                letterSpacing: '0.6px',
+                textTransform: 'uppercase'
+              }}>
+                Top Spenders
+              </h4>
+              {customerInsights.topSpenders.length === 0 ? (
+                <div style={{
+                  padding: '1.5rem 1rem',
+                  textAlign: 'center',
+                  color: '#9ca3af',
+                  fontSize: '0.85rem',
+                  border: '1px dashed #e5e7eb',
+                  borderRadius: '12px'
+                }}>
+                  No spender insights yet.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                  {customerInsights.topSpenders.map((customer, idx) => {
+                    const rankColors = ['#e0bf63', '#c0c0c0', '#cd7f32', '#94a3b8', '#94a3b8'];
+                    const rankColor = rankColors[idx] || '#94a3b8';
+                    return (
+                      <div key={customer._id} style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.7rem',
+                        padding: '0.7rem 0.85rem',
+                        background: '#fafbfc',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '12px'
+                      }}>
+                        <div style={{
+                          width: '28px',
+                          height: '28px',
+                          borderRadius: '50%',
+                          background: rankColor,
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          flexShrink: 0
+                        }}>
+                          {idx + 1}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{
+                            fontWeight: 600,
+                            color: '#1f2937',
+                            fontSize: '0.9rem',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}>
+                            {customer.fullName || 'Unnamed'}
+                          </div>
+                          {customer.email && (
+                            <div style={{
+                              fontSize: '0.72rem',
+                              color: '#6b7280',
+                              marginTop: '0.1rem',
+                              whiteSpace: 'nowrap',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis'
+                            }}>
+                              {customer.email}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{
+                          color: '#6f0022',
+                          fontSize: '0.92rem',
+                          fontWeight: 700,
+                          flexShrink: 0,
+                          whiteSpace: 'nowrap'
+                        }}>
+                          LKR {Math.round(customer.computedSpend || 0).toLocaleString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </>
+        )}
+
+        {activeSection === 'staff' && (
+        <section style={{
+          background: '#fff',
+          borderRadius: '14px',
+          padding: '1rem',
+          border: '1px solid #e9ecef',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+          marginBottom: '1rem'
+        }}>
+          <h3 style={{
+            margin: 0,
+            color: '#6f0022',
+            fontSize: '1.2rem',
+            fontFamily: 'Cormorant Garamond, serif',
+            fontWeight: 600
+          }}>
+            Staff Management
+          </h3>
+          <p style={{ margin: '0.25rem 0 0.85rem', color: '#6b7280', fontSize: '0.85rem' }}>
+            Add and manage staff accounts.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setError('');
+              setIsAddStaffModalOpen(true);
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.5rem',
+              width: '100%',
+              background: '#6f0022',
+              color: '#fff',
+              border: 'none',
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              fontWeight: 600,
+              fontSize: '0.95rem',
+              cursor: 'pointer',
+              boxShadow: '0 6px 14px rgba(111, 0, 34, 0.18)'
+            }}
+          >
+            <FiUsers size={18} />
+            Add Staff Member
+          </button>
         </section>
-        </>
         )}
 
         {activeSection === 'staff' && isAddStaffModalOpen && (
@@ -2049,257 +2114,232 @@ export default function AdminDashboardPage() {
         {activeSection === 'staff' && (
         <section style={{
           background: '#fff',
-          borderRadius: '12px',
-          padding: '2rem',
+          borderRadius: '14px',
+          padding: '1rem',
           border: '1px solid #e9ecef',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '1.5rem',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
             <h3 style={{
               margin: 0,
               color: '#6f0022',
-              fontSize: '1.4rem',
+              fontSize: '1.1rem',
               fontFamily: 'Cormorant Garamond, serif',
               fontWeight: 600
             }}>
               Staff Directory
             </h3>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                padding: '0.6rem 1rem',
-                border: '1px solid #dee2e6',
-                borderRadius: '6px',
-                fontSize: '0.95rem',
-                fontFamily: 'Poppins, sans-serif',
-                background: '#fff',
-                cursor: 'pointer'
-              }}
-            >
-              <option value="all">All Staff</option>
-              <option value="Pending">Pending Approval</option>
-              <option value="Approved">Approved</option>
-              <option value="Revoked">Revoked</option>
-            </select>
+            <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 500 }}>
+              {filteredList.length}
+            </span>
           </div>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.7rem 0.85rem',
+              border: '1px solid #dee2e6',
+              borderRadius: '10px',
+              fontSize: '0.9rem',
+              fontFamily: 'Poppins, sans-serif',
+              background: '#f8fafc',
+              cursor: 'pointer',
+              marginBottom: '0.85rem'
+            }}
+          >
+            <option value="all">All Staff</option>
+            <option value="Pending">Pending Approval</option>
+            <option value="Approved">Approved</option>
+            <option value="Revoked">Revoked</option>
+          </select>
 
           {error && (
             <div style={{
               background: '#f8d7da',
               color: '#721c24',
-              padding: '1rem',
-              borderRadius: '6px',
-              marginBottom: '1.5rem',
-              borderLeft: '4px solid #dc3545'
+              padding: '0.75rem 0.85rem',
+              borderRadius: '10px',
+              marginBottom: '0.85rem',
+              borderLeft: '4px solid #dc3545',
+              fontSize: '0.85rem'
             }}>
               {error}
             </div>
           )}
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '0.95rem'
-            }}>
-              <thead>
-                <tr style={{
-                  borderBottom: '2px solid #e9ecef',
-                  background: '#f8f9fa'
-                }}>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Name
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Role
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Status
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredList.map((item) => (
-                  <tr
-                    key={item._id}
-                    style={{
-                      borderBottom: '1px solid #e9ecef',
-                      transition: 'background 0.2s'
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
-                  >
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{ fontWeight: 500, color: '#333' }}>{item.fullName}</div>
-                      <div style={{ fontSize: '0.85rem', color: '#666', marginTop: '0.2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            {filteredList.map((item) => {
+              const statusStyles = item.status === 'Approved'
+                ? { bg: '#d4edda', text: '#155724' }
+                : item.status === 'Pending'
+                  ? { bg: '#fff3cd', text: '#856404' }
+                  : { bg: '#f8d7da', text: '#721c24' };
+              return (
+                <div
+                  key={item._id}
+                  style={{
+                    border: '1px solid #e9ecef',
+                    borderRadius: '12px',
+                    padding: '0.85rem',
+                    background: '#fafbfc'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.7rem' }}>
+                    <div style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '50%',
+                      background: '#6f0022',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      flexShrink: 0
+                    }}>
+                      {item.fullName?.charAt(0).toUpperCase()}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontWeight: 600,
+                        color: '#1f2937',
+                        fontSize: '0.95rem',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {item.fullName}
+                      </div>
+                      <div style={{
+                        fontSize: '0.78rem',
+                        color: '#6b7280',
+                        marginTop: '0.1rem',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
                         {item.email}
                       </div>
-                    </td>
-                    <td style={{ padding: '1rem', color: '#555' }}>
-                      <span style={{
-                        background: '#e9ecef',
-                        padding: '0.3rem 0.7rem',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
-                        fontWeight: 500
-                      }}>
-                        {item.role}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{
-                        background: item.status === 'Approved' ? '#d4edda' : item.status === 'Pending' ? '#fff3cd' : '#f8d7da',
-                        color: item.status === 'Approved' ? '#155724' : item.status === 'Pending' ? '#856404' : '#721c24',
-                        padding: '0.3rem 0.7rem',
-                        borderRadius: '4px',
-                        fontSize: '0.85rem',
-                        fontWeight: 500
-                      }}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem' }}>
-                      <div style={{
-                        display: 'flex',
-                        gap: '0.5rem',
-                        flexWrap: 'wrap'
-                      }}>
-                        {item.status !== 'Approved' && (
-                          <button
-                            disabled={busyId === item._id}
-                            onClick={() => performAction(item._id, '/approve')}
-                            style={{
-                              padding: '0.4rem 0.8rem',
-                              border: '1px solid #28a745',
-                              background: '#fff',
-                              color: '#28a745',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              fontWeight: 500,
-                              cursor: busyId === item._id ? 'not-allowed' : 'pointer',
-                              opacity: busyId === item._id ? 0.6 : 1,
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => !busyId && (e.target.style.background = '#28a745', e.target.style.color = '#fff')}
-                            onMouseLeave={(e) => !busyId && (e.target.style.background = '#fff', e.target.style.color = '#28a745')}
-                          >
-                            Approve
-                          </button>
-                        )}
-                        {item.status === 'Approved' && (
-                          <button
-                            disabled={busyId === item._id}
-                            onClick={() => performAction(item._id, '/reject')}
-                            style={{
-                              padding: '0.4rem 0.8rem',
-                              border: '1px solid #dc3545',
-                              background: '#fff',
-                              color: '#dc3545',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              fontWeight: 500,
-                              cursor: busyId === item._id ? 'not-allowed' : 'pointer',
-                              opacity: busyId === item._id ? 0.6 : 1,
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => !busyId && (e.target.style.background = '#dc3545', e.target.style.color = '#fff')}
-                            onMouseLeave={(e) => !busyId && (e.target.style.background = '#fff', e.target.style.color = '#dc3545')}
-                          >
-                            Reject
-                          </button>
-                        )}
-                        <button
-                          disabled={busyId === item._id}
-                          onClick={() => openEditStaffModal(item)}
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            border: '1px solid #0ea5e9',
-                            background: '#fff',
-                            color: '#0ea5e9',
-                            borderRadius: '4px',
-                            fontSize: '0.8rem',
-                            fontWeight: 500,
-                            cursor: busyId === item._id ? 'not-allowed' : 'pointer',
-                            opacity: busyId === item._id ? 0.6 : 1,
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => !busyId && (e.target.style.background = '#0ea5e9', e.target.style.color = '#fff')}
-                          onMouseLeave={(e) => !busyId && (e.target.style.background = '#fff', e.target.style.color = '#0ea5e9')}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          disabled={busyId === item._id}
-                          onClick={() => deleteStaff(item._id)}
-                          style={{
-                            padding: '0.4rem 0.8rem',
-                            border: '1px solid #999',
-                            background: '#fff',
-                            color: '#999',
-                            borderRadius: '4px',
-                            fontSize: '0.8rem',
-                            fontWeight: 500,
-                            cursor: busyId === item._id ? 'not-allowed' : 'pointer',
-                            opacity: busyId === item._id ? 0.6 : 1,
-                            transition: 'all 0.2s'
-                          }}
-                          onMouseEnter={(e) => !busyId && (e.target.style.background = '#999', e.target.style.color = '#fff')}
-                          onMouseLeave={(e) => !busyId && (e.target.style.background = '#fff', e.target.style.color = '#999')}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {filteredList.length === 0 && (
-                  <tr>
-                    <td colSpan={4} style={{
-                      padding: '2rem 1rem',
-                      textAlign: 'center',
-                      color: '#999'
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.7rem' }}>
+                    <span style={{
+                      background: '#eef2ff',
+                      color: '#3730a3',
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600
                     }}>
-                      No staff members found for the selected filter.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      {item.role}
+                    </span>
+                    <span style={{
+                      background: statusStyles.bg,
+                      color: statusStyles.text,
+                      padding: '0.25rem 0.6rem',
+                      borderRadius: '999px',
+                      fontSize: '0.72rem',
+                      fontWeight: 600
+                    }}>
+                      {item.status}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.4rem' }}>
+                    {item.status !== 'Approved' && (
+                      <button
+                        disabled={busyId === item._id}
+                        onClick={() => performAction(item._id, '/approve')}
+                        style={{
+                          padding: '0.55rem',
+                          border: 'none',
+                          background: '#28a745',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: busyId === item._id ? 'not-allowed' : 'pointer',
+                          opacity: busyId === item._id ? 0.6 : 1
+                        }}
+                      >
+                        Approve
+                      </button>
+                    )}
+                    {item.status === 'Approved' && (
+                      <button
+                        disabled={busyId === item._id}
+                        onClick={() => performAction(item._id, '/reject')}
+                        style={{
+                          padding: '0.55rem',
+                          border: 'none',
+                          background: '#dc3545',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: busyId === item._id ? 'not-allowed' : 'pointer',
+                          opacity: busyId === item._id ? 0.6 : 1
+                        }}
+                      >
+                        Reject
+                      </button>
+                    )}
+                    <button
+                      disabled={busyId === item._id}
+                      onClick={() => openEditStaffModal(item)}
+                      style={{
+                        padding: '0.55rem',
+                        border: '1px solid #0ea5e9',
+                        background: '#fff',
+                        color: '#0ea5e9',
+                        borderRadius: '8px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        cursor: busyId === item._id ? 'not-allowed' : 'pointer',
+                        opacity: busyId === item._id ? 0.6 : 1
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      disabled={busyId === item._id}
+                      onClick={() => deleteStaff(item._id)}
+                      style={{
+                        gridColumn: item.status === 'Approved' || item.status === 'Pending' || item.status === 'Revoked' ? 'auto' : 'span 2',
+                        padding: '0.55rem',
+                        border: '1px solid #9ca3af',
+                        background: '#fff',
+                        color: '#6b7280',
+                        borderRadius: '8px',
+                        fontSize: '0.82rem',
+                        fontWeight: 600,
+                        cursor: busyId === item._id ? 'not-allowed' : 'pointer',
+                        opacity: busyId === item._id ? 0.6 : 1
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredList.length === 0 && (
+              <div style={{
+                padding: '2rem 1rem',
+                textAlign: 'center',
+                color: '#9ca3af',
+                fontSize: '0.9rem',
+                border: '1px dashed #e5e7eb',
+                borderRadius: '12px'
+              }}>
+                No staff members found for the selected filter.
+              </div>
+            )}
           </div>
         </section>
         )}
@@ -2307,247 +2347,223 @@ export default function AdminDashboardPage() {
         {activeSection === 'customers' && (
         <section style={{
           background: '#fff',
-          borderRadius: '12px',
-          padding: '2rem',
+          borderRadius: '14px',
+          padding: '1rem',
           border: '1px solid #e9ecef',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
-          marginTop: '2rem'
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)'
         }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '1.5rem',
-            flexWrap: 'wrap',
-            gap: '1rem'
-          }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '0.85rem' }}>
             <h3 style={{
               margin: 0,
               color: '#6f0022',
-              fontSize: '1.4rem',
+              fontSize: '1.1rem',
               fontFamily: 'Cormorant Garamond, serif',
               fontWeight: 600
             }}>
               Customers
             </h3>
-            <div style={{
-              display: 'flex',
-              gap: '1rem',
-              flexWrap: 'wrap',
-              alignItems: 'center'
-            }}>
-              <select
-                value={customerLoyaltyFilter}
-                onChange={(e) => setCustomerLoyaltyFilter(e.target.value)}
-                style={{
-                  padding: '0.6rem 1rem',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '6px',
-                  fontSize: '0.95rem',
-                  fontFamily: 'Poppins, sans-serif',
-                  background: '#fff',
-                  cursor: 'pointer',
-                  transition: 'border-color 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#6f0022'}
-                onBlur={(e) => e.target.style.borderColor = '#dee2e6'}
-              >
-                <option value="all">All Customers</option>
-                <option value="loyalty">Loyalty Customers</option>
-              </select>
-              <input
-                type="text"
-                placeholder="Search by name, email, or phone..."
-                value={customerSearchQuery}
-                onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                style={{
-                  padding: '0.6rem 1rem',
-                  border: '1px solid #dee2e6',
-                  borderRadius: '6px',
-                  fontSize: '0.95rem',
-                  fontFamily: 'Poppins, sans-serif',
-                  background: '#fff',
-                  flex: '0 1 300px',
-                  transition: 'border-color 0.2s'
-                }}
-                onFocus={(e) => e.target.style.borderColor = '#6f0022'}
-                onBlur={(e) => e.target.style.borderColor = '#dee2e6'}
-              />
-            </div>
+            <span style={{ fontSize: '0.8rem', color: '#6b7280', fontWeight: 500 }}>
+              {filteredCustomers.length}
+            </span>
           </div>
+
+          <input
+            type="text"
+            placeholder="Search by name, email, or phone..."
+            value={customerSearchQuery}
+            onChange={(e) => setCustomerSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '0.7rem 0.85rem',
+              border: '1px solid #dee2e6',
+              borderRadius: '10px',
+              fontSize: '0.9rem',
+              fontFamily: 'Poppins, sans-serif',
+              background: '#f8fafc',
+              marginBottom: '0.5rem'
+            }}
+            onFocus={(e) => e.target.style.borderColor = '#6f0022'}
+            onBlur={(e) => e.target.style.borderColor = '#dee2e6'}
+          />
+
+          <select
+            value={customerLoyaltyFilter}
+            onChange={(e) => setCustomerLoyaltyFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '0.7rem 0.85rem',
+              border: '1px solid #dee2e6',
+              borderRadius: '10px',
+              fontSize: '0.9rem',
+              fontFamily: 'Poppins, sans-serif',
+              background: '#f8fafc',
+              cursor: 'pointer',
+              marginBottom: '0.85rem'
+            }}
+          >
+            <option value="all">All Customers</option>
+            <option value="loyalty">Loyalty Customers</option>
+          </select>
 
           {error && (
             <div style={{
               background: '#f8d7da',
               color: '#721c24',
-              padding: '1rem',
-              borderRadius: '6px',
-              marginBottom: '1.5rem',
-              borderLeft: '4px solid #dc3545'
+              padding: '0.75rem 0.85rem',
+              borderRadius: '10px',
+              marginBottom: '0.85rem',
+              borderLeft: '4px solid #dc3545',
+              fontSize: '0.85rem'
             }}>
               {error}
             </div>
           )}
 
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              fontSize: '0.95rem'
-            }}>
-              <thead>
-                <tr style={{
-                  borderBottom: '2px solid #e9ecef',
-                  background: '#f8f9fa'
-                }}>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Customer Name
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Email
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Orders
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Loyalty Tier
-                  </th>
-                  <th style={{
-                    padding: '1rem',
-                    textAlign: 'left',
-                    color: '#333',
-                    fontWeight: 600,
-                    fontSize: '0.9rem'
-                  }}>
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCustomers && filteredCustomers.length > 0 ? (
-                  filteredCustomers.map((customer) => {
-                    const customerOrderCount = orders.filter(order => 
-                      String(order.customerId) === String(customer._id)
-                    ).length;
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.7rem' }}>
+            {filteredCustomers && filteredCustomers.length > 0 ? (
+              filteredCustomers.map((customer) => {
+                const customerOrderCount = orders.filter(order =>
+                  String(order.customerId) === String(customer._id)
+                ).length;
+                const tier = customer.loyaltyTier || 'Standard';
+                const tierStyles = tier === 'Platinum'
+                  ? { bg: '#e0e7ff', text: '#3d5a80' }
+                  : tier === 'Gold'
+                    ? { bg: '#fef3c7', text: '#92400e' }
+                    : tier === 'Silver'
+                      ? { bg: '#f1f5f9', text: '#475569' }
+                      : { bg: '#fce7eb', text: '#6f0022' };
 
-                    return (
-                      <tr
-                        key={customer._id}
-                        style={{
-                          borderBottom: '1px solid #e9ecef',
-                          transition: 'background 0.2s'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = '#f8f9fa'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = '#fff'}
-                      >
-                        <td style={{ padding: '1rem' }}>
-                          <div style={{ fontWeight: 500, color: '#333' }}>{customer.fullName || 'N/A'}</div>
-                        </td>
-                        <td style={{ padding: '1rem', color: '#555' }}>
+                return (
+                  <div
+                    key={customer._id}
+                    style={{
+                      border: '1px solid #e9ecef',
+                      borderRadius: '12px',
+                      padding: '0.85rem',
+                      background: '#fafbfc'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.7rem' }}>
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        background: '#0066cc',
+                        color: '#fff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '1rem',
+                        fontWeight: 700,
+                        flexShrink: 0
+                      }}>
+                        {(customer.fullName || '?').charAt(0).toUpperCase()}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{
+                          fontWeight: 600,
+                          color: '#1f2937',
+                          fontSize: '0.95rem',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {customer.fullName || 'N/A'}
+                        </div>
+                        <div style={{
+                          fontSize: '0.78rem',
+                          color: '#6b7280',
+                          marginTop: '0.1rem',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
                           {customer.email}
-                        </td>
-                        <td style={{ padding: '1rem', color: '#333', fontWeight: 600 }}>
-                          {customerOrderCount}
-                        </td>
-                        <td style={{ padding: '1rem' }}>
-                          <span style={{
-                            background: '#e9ecef',
-                            padding: '0.3rem 0.7rem',
-                            borderRadius: '4px',
-                            fontSize: '0.85rem',
-                            fontWeight: 500
-                          }}>
-                            {customer.loyaltyTier || 'Standard'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '1rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          <button
-                            disabled={customerBusyId === customer._id}
-                            onClick={() => openCustomerDetailsModal(customer)}
-                            title="View full customer details"
-                            style={{
-                              padding: '0.4rem 0.8rem',
-                              border: '1px solid #0066cc',
-                              background: '#fff',
-                              color: '#0066cc',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              fontWeight: 500,
-                              cursor: customerBusyId === customer._id ? 'not-allowed' : 'pointer',
-                              opacity: customerBusyId === customer._id ? 0.6 : 1,
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => !customerBusyId && (e.target.style.background = '#0066cc', e.target.style.color = '#fff')}
-                            onMouseLeave={(e) => !customerBusyId && (e.target.style.background = '#fff', e.target.style.color = '#0066cc')}
-                          >
-                            Info
-                          </button>
-                          <button
-                            disabled={customerBusyId === customer._id}
-                            onClick={() => deleteCustomer(customer._id)}
-                            style={{
-                              padding: '0.4rem 0.8rem',
-                              border: '1px solid #dc3545',
-                              background: '#fff',
-                              color: '#dc3545',
-                              borderRadius: '4px',
-                              fontSize: '0.8rem',
-                              fontWeight: 500,
-                              cursor: customerBusyId === customer._id ? 'not-allowed' : 'pointer',
-                              opacity: customerBusyId === customer._id ? 0.6 : 1,
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => !customerBusyId && (e.target.style.background = '#dc3545', e.target.style.color = '#fff')}
-                            onMouseLeave={(e) => !customerBusyId && (e.target.style.background = '#fff', e.target.style.color = '#dc3545')}
-                          >
-                            {customerBusyId === customer._id ? 'Deleting...' : 'Delete'}
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan={5} style={{
-                      padding: '2rem 1rem',
-                      textAlign: 'center',
-                      color: '#999'
-                    }}>
-                      {customerSearchQuery.trim() 
-                        ? 'No customers match your search.' 
-                        : customerLoyaltyFilter === 'loyalty'
-                          ? 'No loyalty customers found.'
-                          : 'No customers found.'
-                      }
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.7rem' }}>
+                      <span style={{
+                        background: tierStyles.bg,
+                        color: tierStyles.text,
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '999px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600
+                      }}>
+                        {tier}
+                      </span>
+                      <span style={{
+                        background: '#eef2ff',
+                        color: '#3730a3',
+                        padding: '0.25rem 0.6rem',
+                        borderRadius: '999px',
+                        fontSize: '0.72rem',
+                        fontWeight: 600
+                      }}>
+                        {customerOrderCount} {customerOrderCount === 1 ? 'order' : 'orders'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.4rem' }}>
+                      <button
+                        disabled={customerBusyId === customer._id}
+                        onClick={() => openCustomerDetailsModal(customer)}
+                        style={{
+                          padding: '0.55rem',
+                          border: 'none',
+                          background: '#0066cc',
+                          color: '#fff',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: customerBusyId === customer._id ? 'not-allowed' : 'pointer',
+                          opacity: customerBusyId === customer._id ? 0.6 : 1
+                        }}
+                      >
+                        View Info
+                      </button>
+                      <button
+                        disabled={customerBusyId === customer._id}
+                        onClick={() => deleteCustomer(customer._id)}
+                        style={{
+                          padding: '0.55rem',
+                          border: '1px solid #dc3545',
+                          background: '#fff',
+                          color: '#dc3545',
+                          borderRadius: '8px',
+                          fontSize: '0.82rem',
+                          fontWeight: 600,
+                          cursor: customerBusyId === customer._id ? 'not-allowed' : 'pointer',
+                          opacity: customerBusyId === customer._id ? 0.6 : 1
+                        }}
+                      >
+                        {customerBusyId === customer._id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{
+                padding: '2rem 1rem',
+                textAlign: 'center',
+                color: '#9ca3af',
+                fontSize: '0.9rem',
+                border: '1px dashed #e5e7eb',
+                borderRadius: '12px'
+              }}>
+                {customerSearchQuery.trim()
+                  ? 'No customers match your search.'
+                  : customerLoyaltyFilter === 'loyalty'
+                    ? 'No loyalty customers found.'
+                    : 'No customers found.'
+                }
+              </div>
+            )}
           </div>
         </section>
         )}
@@ -2562,11 +2578,10 @@ export default function AdminDashboardPage() {
               background: 'rgba(18, 18, 18, 0.65)',
               backdropFilter: 'blur(6px)',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-end',
               justifyContent: 'center',
-              padding: '1rem',
-              zIndex: 1000,
-              overflowY: 'auto'
+              padding: 0,
+              zIndex: 1000
             }}
           >
             <div
@@ -2574,40 +2589,69 @@ export default function AdminDashboardPage() {
               aria-modal="true"
               onClick={(event) => event.stopPropagation()}
               style={{
-                width: 'min(100%, 550px)',
-                maxHeight: '90vh',
+                width: '100%',
+                maxWidth: '550px',
+                maxHeight: '92vh',
                 background: '#fff',
-                borderRadius: '24px',
+                borderRadius: '20px 20px 0 0',
                 border: '1px solid #eadfd6',
-                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.28)',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column'
               }}
             >
+              {/* Sheet handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '0.5rem 0 0' }}>
+                <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: '#e5e7eb' }} />
+              </div>
+
               {/* Modal Header */}
               <div style={{
                 display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'start',
-                gap: '1rem',
-                padding: '2rem',
+                alignItems: 'center',
+                gap: '0.75rem',
+                padding: '0.75rem 1rem 1rem',
                 borderBottom: '1px solid #f1e8ea',
-                background: '#f9f7f4',
                 flexShrink: 0
               }}>
-                <div>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '50%',
+                  background: '#0066cc',
+                  color: '#fff',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '1.1rem',
+                  fontWeight: 700,
+                  flexShrink: 0
+                }}>
+                  {(selectedCustomerDetails.fullName || '?').charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
                   <h2 style={{
                     margin: 0,
                     color: '#6f0022',
-                    fontSize: '1.8rem',
+                    fontSize: '1.15rem',
                     fontFamily: 'Cormorant Garamond, serif',
-                    fontWeight: 600
+                    fontWeight: 600,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
                   }}>
                     {selectedCustomerDetails.fullName}
                   </h2>
-                  <p style={{ margin: '0.5rem 0 0', color: '#666', fontSize: '0.95rem' }}>
-                    Customer ID: {selectedCustomerDetails._id}
+                  <p style={{
+                    margin: '0.1rem 0 0',
+                    color: '#6b7280',
+                    fontSize: '0.72rem',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
+                  }}>
+                    ID: {selectedCustomerDetails._id}
                   </p>
                 </div>
                 <button
@@ -2615,350 +2659,369 @@ export default function AdminDashboardPage() {
                   onClick={closeCustomerDetailsModal}
                   aria-label="Close customer details dialog"
                   style={{
-                    width: '2.9rem',
-                    height: '2.9rem',
+                    width: '36px',
+                    height: '36px',
                     borderRadius: '50%',
                     border: '1px solid #eadfd6',
                     background: '#fff',
                     color: '#6f0022',
-                    fontSize: '1.45rem',
+                    fontSize: '1.2rem',
                     lineHeight: 1,
                     cursor: 'pointer',
-                    transition: 'background 0.2s'
+                    flexShrink: 0
                   }}
-                  onMouseEnter={(e) => e.target.style.background = '#f1e8ea'}
-                  onMouseLeave={(e) => e.target.style.background = '#fff'}
                 >
                   ×
                 </button>
               </div>
 
               {/* Modal Content */}
-              <div style={{ padding: '2rem', maxHeight: '70vh', overflowY: 'auto' }}>
+              <div style={{ padding: '1rem', overflowY: 'auto', flex: 1 }}>
                 {customerDetailsError && (
                   <div style={{
                     background: '#f8d7da',
                     color: '#721c24',
-                    padding: '1rem',
-                    borderRadius: '8px',
-                    marginBottom: '1.5rem',
-                    border: '1px solid #f1b0b7'
+                    padding: '0.75rem 0.85rem',
+                    borderRadius: '10px',
+                    marginBottom: '0.85rem',
+                    border: '1px solid #f1b0b7',
+                    fontSize: '0.85rem'
                   }}>
                     {customerDetailsError}
                   </div>
                 )}
 
                 {isLoadingCustomerDetails ? (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: '#666' }}>
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#6b7280', fontSize: '0.9rem' }}>
                     Loading customer details...
                   </div>
                 ) : (
                   <>
-                    {/* Personal Information Section */}
-                    <div style={{ marginBottom: '2rem' }}>
+                    {/* Personal Information */}
+                    <div style={{ marginBottom: '1.25rem' }}>
                       <h3 style={{
-                        margin: '0 0 1rem',
+                        margin: '0 0 0.7rem',
                         color: '#6f0022',
-                        fontSize: '1.2rem',
-                        fontFamily: 'Cormorant Garamond, serif',
-                        fontWeight: 600,
-                        borderBottom: '2px solid #e0bf63',
-                        paddingBottom: '0.5rem'
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.6px',
+                        textTransform: 'uppercase'
                       }}>
                         Personal Information
                       </h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div>
-                          <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Full Name</p>
-                          <p style={{ margin: 0, color: '#333', fontSize: '1rem', fontWeight: 500 }}>{selectedCustomerDetails.fullName}</p>
-                        </div>
-                        <div>
-                          <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Email</p>
-                          <p style={{ margin: 0, color: '#333', fontSize: '1rem', wordBreak: 'break-all' }}>{selectedCustomerDetails.email}</p>
-                        </div>
-                        <div>
-                          <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Phone</p>
-                          <p style={{ margin: 0, color: '#333', fontSize: '1rem' }}>{selectedCustomerDetails.phone || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Registered Date</p>
-                          <p style={{ margin: 0, color: '#333', fontSize: '1rem' }}>
-                            {selectedCustomerDetails.registeredDate 
+                      <div style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '12px',
+                        padding: '0.85rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.7rem'
+                      }}>
+                        {[
+                          { label: 'Full Name', value: selectedCustomerDetails.fullName },
+                          { label: 'Email', value: selectedCustomerDetails.email, breakAll: true },
+                          { label: 'Phone', value: selectedCustomerDetails.phone || 'N/A' },
+                          {
+                            label: 'Registered',
+                            value: selectedCustomerDetails.registeredDate
                               ? new Date(selectedCustomerDetails.registeredDate).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })
                               : 'N/A'
-                            }
-                          </p>
-                        </div>
+                          }
+                        ].map((row, idx, arr) => (
+                          <div key={idx} style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            gap: '0.75rem',
+                            paddingBottom: idx < arr.length - 1 ? '0.7rem' : 0,
+                            borderBottom: idx < arr.length - 1 ? '1px solid #e9ecef' : 'none'
+                          }}>
+                            <span style={{ color: '#6b7280', fontSize: '0.78rem', fontWeight: 500, flexShrink: 0 }}>
+                              {row.label}
+                            </span>
+                            <span style={{
+                              color: '#1f2937',
+                              fontSize: '0.85rem',
+                              fontWeight: 600,
+                              textAlign: 'right',
+                              wordBreak: row.breakAll ? 'break-all' : 'normal',
+                              minWidth: 0
+                            }}>
+                              {row.value}
+                            </span>
+                          </div>
+                        ))}
+                        {selectedCustomerDetails.address && (
+                          <div style={{
+                            paddingTop: '0.7rem',
+                            borderTop: '1px solid #e9ecef'
+                          }}>
+                            <p style={{ margin: '0 0 0.25rem', color: '#6b7280', fontSize: '0.78rem', fontWeight: 500 }}>Address</p>
+                            <p style={{ margin: 0, color: '#1f2937', fontSize: '0.85rem', fontWeight: 500, lineHeight: 1.4 }}>
+                              {selectedCustomerDetails.address.street}, {selectedCustomerDetails.address.city}, {selectedCustomerDetails.address.state} {selectedCustomerDetails.address.zipCode}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                      {selectedCustomerDetails.address && (
-                        <div style={{ marginTop: '1rem' }}>
-                          <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Address</p>
-                          <p style={{ margin: 0, color: '#333', fontSize: '1rem' }}>
-                            {selectedCustomerDetails.address.street}, {selectedCustomerDetails.address.city}, {selectedCustomerDetails.address.state} {selectedCustomerDetails.address.zipCode}
-                          </p>
-                        </div>
-                      )}
                     </div>
 
-                    {/* Order Summary Section */}
-                    <div style={{ marginBottom: '2rem' }}>
+                    {/* Order Summary */}
+                    <div style={{ marginBottom: '1.25rem' }}>
                       <h3 style={{
-                        margin: '0 0 1rem',
+                        margin: '0 0 0.7rem',
                         color: '#6f0022',
-                        fontSize: '1.2rem',
-                        fontFamily: 'Cormorant Garamond, serif',
-                        fontWeight: 600,
-                        borderBottom: '2px solid #e0bf63',
-                        paddingBottom: '0.5rem'
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.6px',
+                        textTransform: 'uppercase'
                       }}>
                         Order Summary
                       </h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem' }}>
-                        <div style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e9ecef',
-                          borderRadius: '10px',
-                          padding: '1rem',
-                          textAlign: 'center'
-                        }}>
-                          <p style={{ margin: '0 0 0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>Total Orders</p>
-                          <p style={{ margin: 0, color: '#0066cc', fontSize: '1.8rem', fontWeight: 700 }}>{selectedCustomerDetails.orderCount}</p>
-                        </div>
-                        <div style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e9ecef',
-                          borderRadius: '10px',
-                          padding: '1rem',
-                          textAlign: 'center'
-                        }}>
-                          <p style={{ margin: '0 0 0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>Total Spent</p>
-                          <p style={{ margin: 0, color: '#28a745', fontSize: '1.8rem', fontWeight: 700 }}>LKR {Math.round(selectedCustomerDetails.totalSpent).toLocaleString()}</p>
-                        </div>
-                        <div style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e9ecef',
-                          borderRadius: '10px',
-                          padding: '1rem',
-                          textAlign: 'center'
-                        }}>
-                          <p style={{ margin: '0 0 0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: 500 }}>Avg. Order Value</p>
-                          <p style={{ margin: 0, color: '#6f0022', fontSize: '1.8rem', fontWeight: 700 }}>
-                            LKR {selectedCustomerDetails.orderCount > 0 ? Math.round(selectedCustomerDetails.totalSpent / selectedCustomerDetails.orderCount).toLocaleString() : '0'}
-                          </p>
-                        </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                        {[
+                          { label: 'Orders', value: selectedCustomerDetails.orderCount, color: '#0066cc' },
+                          { label: 'Spent', value: `LKR ${Math.round(selectedCustomerDetails.totalSpent).toLocaleString()}`, color: '#28a745' },
+                          { label: 'Avg', value: `LKR ${selectedCustomerDetails.orderCount > 0 ? Math.round(selectedCustomerDetails.totalSpent / selectedCustomerDetails.orderCount).toLocaleString() : '0'}`, color: '#6f0022' }
+                        ].map((tile, idx) => (
+                          <div key={idx} style={{
+                            background: '#f8fafc',
+                            border: '1px solid #e9ecef',
+                            borderRadius: '10px',
+                            padding: '0.7rem 0.5rem',
+                            textAlign: 'center'
+                          }}>
+                            <p style={{ margin: 0, color: '#6b7280', fontSize: '0.7rem', fontWeight: 500, textTransform: 'uppercase' }}>
+                              {tile.label}
+                            </p>
+                            <p style={{
+                              margin: '0.25rem 0 0',
+                              color: tile.color,
+                              fontSize: '0.95rem',
+                              fontWeight: 700,
+                              wordBreak: 'break-word',
+                              lineHeight: 1.2
+                            }}>
+                              {tile.value}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    {/* Loyalty Program Section */}
-                    <div style={{ marginBottom: '2rem' }}>
+                    {/* Loyalty Program */}
+                    <div style={{ marginBottom: '1.25rem' }}>
                       <h3 style={{
-                        margin: '0 0 1rem',
+                        margin: '0 0 0.7rem',
                         color: '#6f0022',
-                        fontSize: '1.2rem',
-                        fontFamily: 'Cormorant Garamond, serif',
-                        fontWeight: 600,
-                        borderBottom: '2px solid #e0bf63',
-                        paddingBottom: '0.5rem'
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.6px',
+                        textTransform: 'uppercase'
                       }}>
                         Loyalty Program
                       </h3>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        <div style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e9ecef',
-                          borderRadius: '10px',
-                          padding: '1rem'
-                        }}>
-                          <p style={{ margin: '0 0 0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Loyalty Tier</p>
-                          <p style={{ 
-                            margin: 0, 
-                            color: '#6f0022', 
-                            fontSize: '1.3rem', 
+                      <div style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e9ecef',
+                        borderRadius: '12px',
+                        padding: '0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.85rem'
+                      }}>
+                        <div>
+                          <p style={{ margin: 0, color: '#6b7280', fontSize: '0.72rem', fontWeight: 500, textTransform: 'uppercase' }}>Tier</p>
+                          <span style={{
+                            display: 'inline-block',
+                            marginTop: '0.35rem',
+                            padding: '0.3rem 0.7rem',
+                            borderRadius: '999px',
+                            fontSize: '0.8rem',
                             fontWeight: 700,
-                            background: selectedCustomerDetails.loyaltyTierStatus === 'Platinum' ? '#3d5a80' : 
+                            background: selectedCustomerDetails.loyaltyTierStatus === 'Platinum' ? '#3d5a80' :
                                         selectedCustomerDetails.loyaltyTierStatus === 'Gold' ? '#e0bf63' :
-                                        selectedCustomerDetails.loyaltyTierStatus === 'Silver' ? '#c0c0c0' : '#999',
-                            color: selectedCustomerDetails.loyaltyTierStatus === 'Gold' ? '#333' : '#fff',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '8px',
-                            textAlign: 'center',
-                            width: 'fit-content'
+                                        selectedCustomerDetails.loyaltyTierStatus === 'Silver' ? '#c0c0c0' : '#9ca3af',
+                            color: selectedCustomerDetails.loyaltyTierStatus === 'Gold' ? '#3d2b00' : '#fff'
                           }}>
                             {selectedCustomerDetails.loyaltyTierStatus}
-                          </p>
+                          </span>
                         </div>
-                        <div style={{
-                          background: '#f8fafc',
-                          border: '1px solid #e9ecef',
-                          borderRadius: '10px',
-                          padding: '1rem'
-                        }}>
-                          <p style={{ margin: '0 0 0.5rem', color: '#666', fontSize: '0.9rem', fontWeight: 500, textTransform: 'uppercase' }}>Loyalty Points</p>
-                          <p style={{ margin: 0, color: '#e0bf63', fontSize: '1.3rem', fontWeight: 700 }}>{selectedCustomerDetails.loyaltyPointsBalance}</p>
-                          <p style={{ margin: '0.3rem 0 0', color: '#999', fontSize: '0.85rem' }}>
+                        <div style={{ textAlign: 'right' }}>
+                          <p style={{ margin: 0, color: '#6b7280', fontSize: '0.72rem', fontWeight: 500, textTransform: 'uppercase' }}>Points</p>
+                          <p style={{ margin: '0.25rem 0 0', color: '#e0bf63', fontSize: '1.15rem', fontWeight: 700 }}>
+                            {selectedCustomerDetails.loyaltyPointsBalance}
+                          </p>
+                          <p style={{ margin: '0.1rem 0 0', color: '#9ca3af', fontSize: '0.72rem' }}>
                             {selectedCustomerDetails.isLoyalty ? 'Active Member' : 'Not a member'}
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    {/* Order History Section */}
-                    {selectedCustomerDetails.orders && selectedCustomerDetails.orders.length > 0 ? (
-                      <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{
-                          margin: '0 0 1rem',
-                          color: '#6f0022',
-                          fontSize: '1.2rem',
-                          fontFamily: 'Cormorant Garamond, serif',
-                          fontWeight: 600,
-                          borderBottom: '2px solid #e0bf63',
-                          paddingBottom: '0.5rem'
-                        }}>
-                          Order History
-                        </h3>
-                        <div style={{ overflowX: 'auto' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                            <thead>
-                              <tr style={{ background: '#f8f9fa', borderBottom: '2px solid #e9ecef' }}>
-                                <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: '#333' }}>Order #</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: '#333' }}>Date</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: '#333' }}>Items</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 600, color: '#333' }}>Amount</th>
-                                <th style={{ padding: '0.8rem', textAlign: 'left', fontWeight: 600, color: '#333' }}>Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {selectedCustomerDetails.orders.map((order) => {
-                                const itemCount = Array.isArray(order.items)
-                                  ? order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
-                                  : 0;
-                                
-                                const statusColor = order.status === 'Completed'
-                                  ? { bg: '#d4edda', text: '#155724' }
-                                  : order.status === 'Pending'
-                                    ? { bg: '#fff3cd', text: '#856404' }
-                                    : ['Cancelled', 'Refunded'].includes(order.status)
-                                      ? { bg: '#f8d7da', text: '#721c24' }
-                                      : { bg: '#e2e3e5', text: '#383d41' };
-
-                                return (
-                                  <tr key={order._id} style={{ borderBottom: '1px solid #e9ecef' }}>
-                                    <td style={{ padding: '0.8rem', fontWeight: 600, color: '#333' }}>{order.orderNumber}</td>
-                                    <td style={{ padding: '0.8rem', color: '#555' }}>
-                                      {new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
-                                    </td>
-                                    <td style={{ padding: '0.8rem', color: '#555' }}>{itemCount} item{itemCount !== 1 ? 's' : ''}</td>
-                                    <td style={{ padding: '0.8rem', textAlign: 'right', fontWeight: 700, color: '#6f0022' }}>LKR {Math.round(Number(order.total || 0)).toLocaleString()}</td>
-                                    <td style={{ padding: '0.8rem' }}>
-                                      <span style={{
-                                        background: statusColor.bg,
-                                        color: statusColor.text,
-                                        padding: '0.3rem 0.7rem',
-                                        borderRadius: '999px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600,
-                                        display: 'inline-block'
-                                      }}>
-                                        {order.status}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ) : (
-                      <div style={{
-                        background: '#f8fafc',
-                        border: '1px solid #e9ecef',
-                        borderRadius: '10px',
-                        padding: '1.5rem',
-                        textAlign: 'center',
-                        color: '#999',
-                        marginBottom: '2rem'
+                    {/* Order History */}
+                    <div style={{ marginBottom: '1.25rem' }}>
+                      <h3 style={{
+                        margin: '0 0 0.7rem',
+                        color: '#6f0022',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.6px',
+                        textTransform: 'uppercase'
                       }}>
-                        No orders yet.
-                      </div>
-                    )}
-
-                    {/* Coupons Used Section */}
-                    {selectedCustomerDetails.couponsUsed && selectedCustomerDetails.couponsUsed.length > 0 ? (
-                      <div style={{ marginBottom: '2rem' }}>
-                        <h3 style={{
-                          margin: '0 0 1rem',
-                          color: '#6f0022',
-                          fontSize: '1.2rem',
-                          fontFamily: 'Cormorant Garamond, serif',
-                          fontWeight: 600,
-                          borderBottom: '2px solid #e0bf63',
-                          paddingBottom: '0.5rem'
+                        Order History
+                      </h3>
+                      {selectedCustomerDetails.orders && selectedCustomerDetails.orders.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                          {selectedCustomerDetails.orders.map((order) => {
+                            const itemCount = Array.isArray(order.items)
+                              ? order.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0)
+                              : 0;
+                            const statusColor = order.status === 'Completed'
+                              ? { bg: '#d4edda', text: '#155724' }
+                              : order.status === 'Pending'
+                                ? { bg: '#fff3cd', text: '#856404' }
+                                : ['Cancelled', 'Refunded'].includes(order.status)
+                                  ? { bg: '#f8d7da', text: '#721c24' }
+                                  : { bg: '#e2e3e5', text: '#383d41' };
+                            return (
+                              <div key={order._id} style={{
+                                background: '#f8fafc',
+                                border: '1px solid #e9ecef',
+                                borderRadius: '10px',
+                                padding: '0.7rem 0.85rem'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+                                  <span style={{ fontWeight: 700, color: '#1f2937', fontSize: '0.85rem' }}>
+                                    #{order.orderNumber}
+                                  </span>
+                                  <span style={{
+                                    background: statusColor.bg,
+                                    color: statusColor.text,
+                                    padding: '0.2rem 0.55rem',
+                                    borderRadius: '999px',
+                                    fontSize: '0.7rem',
+                                    fontWeight: 600
+                                  }}>
+                                    {order.status}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
+                                  <div style={{ color: '#6b7280', fontSize: '0.78rem' }}>
+                                    {new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                                    <span style={{ margin: '0 0.4rem' }}>·</span>
+                                    {itemCount} item{itemCount !== 1 ? 's' : ''}
+                                  </div>
+                                  <div style={{ color: '#6f0022', fontSize: '0.95rem', fontWeight: 700 }}>
+                                    LKR {Math.round(Number(order.total || 0)).toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{
+                          background: '#f8fafc',
+                          border: '1px dashed #e5e7eb',
+                          borderRadius: '12px',
+                          padding: '1.1rem',
+                          textAlign: 'center',
+                          color: '#9ca3af',
+                          fontSize: '0.85rem'
                         }}>
-                          Coupons Used
-                        </h3>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+                          No orders yet.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Coupons Used */}
+                    <div>
+                      <h3 style={{
+                        margin: '0 0 0.7rem',
+                        color: '#6f0022',
+                        fontSize: '0.78rem',
+                        fontWeight: 700,
+                        letterSpacing: '0.6px',
+                        textTransform: 'uppercase'
+                      }}>
+                        Coupons Used
+                      </h3>
+                      {selectedCustomerDetails.couponsUsed && selectedCustomerDetails.couponsUsed.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
                           {selectedCustomerDetails.couponsUsed.map((coupon, idx) => (
                             <div key={idx} style={{
                               background: '#f8fafc',
                               border: '1px solid #e9ecef',
                               borderRadius: '10px',
-                              padding: '1rem'
+                              padding: '0.7rem 0.85rem',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: '0.75rem'
                             }}>
-                              <p style={{ margin: '0 0 0.5rem', color: '#666', fontSize: '0.85rem', fontWeight: 500, textTransform: 'uppercase' }}>Code</p>
-                              <p style={{ margin: '0 0 0.8rem', color: '#6f0022', fontSize: '1.1rem', fontWeight: 700, fontFamily: 'monospace' }}>{coupon.code}</p>
-                              <p style={{ margin: '0 0 0.3rem', color: '#666', fontSize: '0.85rem', fontWeight: 500, textTransform: 'uppercase' }}>Discount</p>
-                              <p style={{ margin: '0 0 0.8rem', color: '#28a745', fontSize: '1rem', fontWeight: 600 }}>LKR {Math.round(coupon.discount).toLocaleString()}</p>
-                              <p style={{ margin: 0, color: '#999', fontSize: '0.85rem' }}>Order: {coupon.orderNumber}</p>
+                              <div style={{ minWidth: 0 }}>
+                                <p style={{
+                                  margin: 0,
+                                  color: '#6f0022',
+                                  fontSize: '0.95rem',
+                                  fontWeight: 700,
+                                  fontFamily: 'monospace',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}>
+                                  {coupon.code}
+                                </p>
+                                <p style={{ margin: '0.15rem 0 0', color: '#9ca3af', fontSize: '0.72rem' }}>
+                                  Order #{coupon.orderNumber}
+                                </p>
+                              </div>
+                              <div style={{ color: '#28a745', fontSize: '0.9rem', fontWeight: 700, flexShrink: 0 }}>
+                                -LKR {Math.round(coupon.discount).toLocaleString()}
+                              </div>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    ) : (
-                      <div style={{
-                        background: '#f8fafc',
-                        border: '1px solid #e9ecef',
-                        borderRadius: '10px',
-                        padding: '1.5rem',
-                        textAlign: 'center',
-                        color: '#999',
-                        marginBottom: '2rem'
-                      }}>
-                        No coupons used yet.
-                      </div>
-                    )}
+                      ) : (
+                        <div style={{
+                          background: '#f8fafc',
+                          border: '1px dashed #e5e7eb',
+                          borderRadius: '12px',
+                          padding: '1.1rem',
+                          textAlign: 'center',
+                          color: '#9ca3af',
+                          fontSize: '0.85rem'
+                        }}>
+                          No coupons used yet.
+                        </div>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
 
               {/* Modal Footer */}
               <div style={{
-                padding: '1.5rem 2rem',
+                padding: '0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px))',
                 borderTop: '1px solid #f1e8ea',
                 background: '#f9f7f4',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                gap: '1rem'
+                flexShrink: 0
               }}>
                 <button
                   type="button"
                   onClick={closeCustomerDetailsModal}
                   style={{
-                    border: '1px solid #dee2e6',
-                    color: '#6b7280',
-                    background: '#fff',
-                    padding: '0.8rem 1.5rem',
+                    width: '100%',
+                    border: 'none',
+                    color: '#fff',
+                    background: '#6f0022',
+                    padding: '0.85rem',
                     fontSize: '0.95rem',
-                    borderRadius: '999px',
+                    borderRadius: '10px',
                     fontWeight: 600,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = '#f1e8ea';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = '#fff';
+                    cursor: 'pointer'
                   }}
                 >
                   Close
@@ -2978,9 +3041,9 @@ export default function AdminDashboardPage() {
               background: 'rgba(18, 18, 18, 0.65)',
               backdropFilter: 'blur(6px)',
               display: 'flex',
-              alignItems: 'center',
+              alignItems: 'flex-end',
               justifyContent: 'center',
-              padding: '1rem',
+              padding: 0,
               zIndex: 1000
             }}
           >
@@ -2989,288 +3052,275 @@ export default function AdminDashboardPage() {
               aria-modal="true"
               onClick={(event) => event.stopPropagation()}
               style={{
-                width: 'min(100%, 500px)',
-                maxHeight: '90vh',
+                width: '100%',
+                maxWidth: '550px',
+                maxHeight: '92vh',
                 background: '#fff',
-                borderRadius: '24px',
+                borderRadius: '20px 20px 0 0',
                 border: '1px solid #eadfd6',
-                boxShadow: '0 24px 60px rgba(0, 0, 0, 0.28)',
+                boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.28)',
                 overflow: 'hidden',
                 display: 'flex',
                 flexDirection: 'column'
               }}
             >
-              {/* Header with gradient accent */}
+              {/* Sheet handle */}
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '0.5rem 0 0' }}>
+                <div style={{ width: '40px', height: '4px', borderRadius: '2px', background: '#e5e7eb' }} />
+              </div>
+
+              {/* Header */}
               <div style={{
-                position: 'relative',
-                overflow: 'hidden',
-                paddingBottom: '0',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.75rem',
+                padding: '0.75rem 1rem 1rem',
+                borderBottom: '1px solid #f1e8ea',
                 flexShrink: 0
               }}>
-                {/* Accent bar at top */}
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: '4px',
-                  background: 'linear-gradient(90deg, #6f0022, #e0bf63)',
-                }}></div>
-                
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'start',
-                  gap: '1rem',
-                  padding: '2.5rem 2.5rem 2rem',
-                  background: 'linear-gradient(135deg, #fff9f7 0%, #f9f7f4 100%)'
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{
-                      margin: 0,
-                      color: '#6f0022',
-                      fontSize: '2rem',
-                      fontFamily: 'Cormorant Garamond, serif',
-                      fontWeight: 600,
-                      letterSpacing: '0.5px'
-                    }}>
-                      {isEditBannerModalOpen ? 'Edit Banner' : 'Create Banner'}
-                    </h3>
-                    <p style={{ 
-                      margin: '0.6rem 0 0', 
-                      color: '#888', 
-                      fontSize: '0.95rem',
-                      fontWeight: 400
-                    }}>
-                      {isEditBannerModalOpen ? 'Update your banner content and settings' : 'Create a new promotional banner for your store'}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAddBannerModalOpen(false); setIsEditBannerModalOpen(false); }}
-                    style={{
-                      width: '2.8rem',
-                      height: '2.8rem',
-                      borderRadius: '50%',
-                      border: '1px solid #e0bf63',
-                      background: '#fff',
-                      color: '#6f0022',
-                      fontSize: '1.5rem',
-                      lineHeight: 1,
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = '#f1e8ea';
-                      e.target.style.transform = 'scale(1.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = '#fff';
-                      e.target.style.transform = 'scale(1)';
-                    }}
-                  >
-                    ×
-                  </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h3 style={{
+                    margin: 0,
+                    color: '#6f0022',
+                    fontSize: '1.15rem',
+                    fontFamily: 'Cormorant Garamond, serif',
+                    fontWeight: 600
+                  }}>
+                    {isEditBannerModalOpen ? 'Edit Banner' : 'Create Banner'}
+                  </h3>
+                  <p style={{
+                    margin: '0.1rem 0 0',
+                    color: '#6b7280',
+                    fontSize: '0.78rem'
+                  }}>
+                    {isEditBannerModalOpen ? 'Update content and settings' : 'New promotional banner'}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => { setIsAddBannerModalOpen(false); setIsEditBannerModalOpen(false); }}
+                  style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    border: '1px solid #eadfd6',
+                    background: '#fff',
+                    color: '#6f0022',
+                    fontSize: '1.2rem',
+                    lineHeight: 1,
+                    cursor: 'pointer',
+                    flexShrink: 0
+                  }}
+                >
+                  ×
+                </button>
               </div>
 
               {/* Form Content */}
-              <form onSubmit={isEditBannerModalOpen ? updateBanner : createBanner} style={{ padding: '2.5rem', background: '#fff', overflowY: 'auto', flex: 1 }}>
+              <form
+                onSubmit={isEditBannerModalOpen ? updateBanner : createBanner}
+                style={{
+                  padding: '1rem',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '1rem'
+                }}
+              >
                 {error && (
                   <div style={{
-                    background: '#fff5f5',
-                    border: '1px solid #f8d7da',
+                    background: '#f8d7da',
+                    border: '1px solid #f5c6cb',
                     color: '#721c24',
-                    padding: '1rem 1.2rem',
-                    borderRadius: '12px',
-                    marginBottom: '1.8rem',
-                    fontSize: '0.92rem',
-                    fontWeight: 500,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.8rem'
+                    padding: '0.75rem 0.85rem',
+                    borderRadius: '10px',
+                    fontSize: '0.85rem'
                   }}>
-                    <span style={{ fontSize: '1.2rem' }}>⚠</span>
                     {error}
                   </div>
                 )}
 
-                {/* Banner Message */}
-                <div style={{ marginBottom: '1.8rem' }}>
+                {/* Live preview */}
+                <div style={{
+                  background: bannerForm.backgroundColor || '#fff3cd',
+                  color: bannerForm.textColor || '#856404',
+                  padding: '0.85rem 1rem',
+                  borderRadius: '10px',
+                  fontSize: '0.85rem',
+                  fontWeight: 500,
+                  textAlign: 'center',
+                  border: '1px dashed rgba(0,0,0,0.08)',
+                  wordBreak: 'break-word'
+                }}>
+                  {bannerForm.message || 'Banner preview…'}
+                </div>
+
+                {/* Message */}
+                <div>
                   <label style={{
                     display: 'block',
-                    color: '#333',
-                    fontSize: '0.9rem',
+                    color: '#374151',
+                    fontSize: '0.78rem',
                     fontWeight: 600,
-                    marginBottom: '0.6rem',
+                    marginBottom: '0.4rem',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.3px'
+                    letterSpacing: '0.4px'
                   }}>
-                    Banner Message
+                    Message
                   </label>
                   <textarea
                     value={bannerForm.message}
                     onChange={(e) => setBannerForm({ ...bannerForm, message: e.target.value })}
-                    placeholder="Enter your banner message (e.g., 'New collection launched! Check it out.')"
+                    placeholder="e.g., New collection launched! Check it out."
+                    rows={3}
                     style={{
                       width: '100%',
-                      minHeight: '100px',
-                      padding: '0.95rem 1.1rem',
-                      border: '1px solid #e0e7ff',
-                      borderRadius: '12px',
+                      padding: '0.7rem 0.85rem',
+                      border: '1px solid #dee2e6',
+                      borderRadius: '10px',
                       fontFamily: 'Poppins, sans-serif',
-                      fontSize: '1rem',
-                      background: '#f9f9f9',
+                      fontSize: '0.9rem',
+                      background: '#f8fafc',
                       resize: 'vertical',
-                      transition: 'all 0.2s',
                       boxSizing: 'border-box'
                     }}
-                    onFocus={(e) => {
-                      e.target.style.border = '2px solid #6f0022';
-                      e.target.style.background = '#fff';
-                      e.target.style.boxShadow = '0 4px 12px rgba(111, 0, 34, 0.1)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.border = '1px solid #e0e7ff';
-                      e.target.style.background = '#f9f9f9';
-                      e.target.style.boxShadow = 'none';
-                    }}
+                    onFocus={(e) => { e.target.style.borderColor = '#6f0022'; e.target.style.background = '#fff'; }}
+                    onBlur={(e) => { e.target.style.borderColor = '#dee2e6'; e.target.style.background = '#f8fafc'; }}
                   />
                 </div>
 
-                {/* Banner Type and Background Color */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.8rem', marginBottom: '1.8rem' }}>
+                {/* Type */}
+                <div>
+                  <label style={{
+                    display: 'block',
+                    color: '#374151',
+                    fontSize: '0.78rem',
+                    fontWeight: 600,
+                    marginBottom: '0.4rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.4px'
+                  }}>
+                    Type
+                  </label>
+                  <select
+                    value={bannerForm.type}
+                    onChange={(e) => setBannerForm({ ...bannerForm, type: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '0.7rem 0.85rem',
+                      border: '1px solid #dee2e6',
+                      borderRadius: '10px',
+                      fontSize: '0.9rem',
+                      fontFamily: 'Poppins, sans-serif',
+                      background: '#f8fafc',
+                      cursor: 'pointer',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="info">Information</option>
+                    <option value="success">Success</option>
+                    <option value="warning">Warning</option>
+                    <option value="promo">Promotion</option>
+                  </select>
+                </div>
+
+                {/* Colors */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label style={{
                       display: 'block',
-                      color: '#333',
-                      fontSize: '0.9rem',
+                      color: '#374151',
+                      fontSize: '0.78rem',
                       fontWeight: 600,
-                      marginBottom: '0.6rem',
+                      marginBottom: '0.4rem',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.3px'
+                      letterSpacing: '0.4px'
                     }}>
-                      Banner Type
-                    </label>
-                    <select
-                      value={bannerForm.type}
-                      onChange={(e) => setBannerForm({ ...bannerForm, type: e.target.value })}
-                      style={{
-                        width: '100%',
-                        padding: '0.95rem 1.1rem',
-                        border: '1px solid #e0e7ff',
-                        borderRadius: '12px',
-                        fontSize: '1rem',
-                        fontFamily: 'Poppins, sans-serif',
-                        background: '#f9f9f9',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        boxSizing: 'border-box'
-                      }}
-                      onFocus={(e) => {
-                        e.target.style.border = '2px solid #6f0022';
-                        e.target.style.background = '#fff';
-                        e.target.style.boxShadow = '0 4px 12px rgba(111, 0, 34, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.border = '1px solid #e0e7ff';
-                        e.target.style.background = '#f9f9f9';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                    >
-                      <option value="info">Information</option>
-                      <option value="success">Success</option>
-                      <option value="warning">Warning</option>
-                      <option value="promo">Promotion</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{
-                      display: 'block',
-                      color: '#333',
-                      fontSize: '0.9rem',
-                      fontWeight: 600,
-                      marginBottom: '0.6rem',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.3px'
-                    }}>
-                      Background Color
+                      Background
                     </label>
                     <div style={{
                       display: 'flex',
-                      gap: '0.8rem',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.4rem 0.5rem',
+                      border: '1px solid #dee2e6',
+                      borderRadius: '10px',
+                      background: '#f8fafc'
                     }}>
                       <input
                         type="color"
                         value={bannerForm.backgroundColor}
                         onChange={(e) => setBannerForm({ ...bannerForm, backgroundColor: e.target.value })}
                         style={{
-                          width: '60px',
-                          height: '44px',
-                          border: '1px solid #e0e7ff',
-                          borderRadius: '12px',
+                          width: '38px',
+                          height: '38px',
+                          border: 'none',
+                          borderRadius: '8px',
                           cursor: 'pointer',
-                          transition: 'border-color 0.2s'
+                          padding: 0,
+                          background: 'transparent'
                         }}
-                        onFocus={(e) => e.target.style.border = '2px solid #6f0022'}
-                        onBlur={(e) => e.target.style.border = '1px solid #e0e7ff'}
                       />
-                      <span style={{ color: '#999', fontSize: '0.85rem', fontFamily: 'monospace' }}>{bannerForm.backgroundColor}</span>
+                      <span style={{ color: '#6b7280', fontSize: '0.78rem', fontFamily: 'monospace' }}>
+                        {bannerForm.backgroundColor}
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                {/* Text Color and Start Date */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.8rem', marginBottom: '1.8rem' }}>
                   <div>
                     <label style={{
                       display: 'block',
-                      color: '#333',
-                      fontSize: '0.9rem',
+                      color: '#374151',
+                      fontSize: '0.78rem',
                       fontWeight: 600,
-                      marginBottom: '0.6rem',
+                      marginBottom: '0.4rem',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.3px'
+                      letterSpacing: '0.4px'
                     }}>
-                      Text Color
+                      Text
                     </label>
                     <div style={{
                       display: 'flex',
-                      gap: '0.8rem',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.4rem 0.5rem',
+                      border: '1px solid #dee2e6',
+                      borderRadius: '10px',
+                      background: '#f8fafc'
                     }}>
                       <input
                         type="color"
                         value={bannerForm.textColor}
                         onChange={(e) => setBannerForm({ ...bannerForm, textColor: e.target.value })}
                         style={{
-                          width: '60px',
-                          height: '44px',
-                          border: '1px solid #e0e7ff',
-                          borderRadius: '12px',
+                          width: '38px',
+                          height: '38px',
+                          border: 'none',
+                          borderRadius: '8px',
                           cursor: 'pointer',
-                          transition: 'border-color 0.2s'
+                          padding: 0,
+                          background: 'transparent'
                         }}
-                        onFocus={(e) => e.target.style.border = '2px solid #6f0022'}
-                        onBlur={(e) => e.target.style.border = '1px solid #e0e7ff'}
                       />
-                      <span style={{ color: '#999', fontSize: '0.85rem', fontFamily: 'monospace' }}>{bannerForm.textColor}</span>
+                      <span style={{ color: '#6b7280', fontSize: '0.78rem', fontFamily: 'monospace' }}>
+                        {bannerForm.textColor}
+                      </span>
                     </div>
                   </div>
+                </div>
+
+                {/* Dates */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                   <div>
                     <label style={{
                       display: 'block',
-                      color: '#333',
-                      fontSize: '0.9rem',
+                      color: '#374151',
+                      fontSize: '0.78rem',
                       fontWeight: 600,
-                      marginBottom: '0.6rem',
+                      marginBottom: '0.4rem',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.3px'
+                      letterSpacing: '0.4px'
                     }}>
                       Start Date
                     </label>
@@ -3281,41 +3331,25 @@ export default function AdminDashboardPage() {
                       min={new Date().toISOString().split('T')[0]}
                       style={{
                         width: '100%',
-                        padding: '0.95rem 1.1rem',
-                        border: '1px solid #e0e7ff',
-                        borderRadius: '12px',
-                        fontSize: '1rem',
+                        padding: '0.7rem 0.85rem',
+                        border: '1px solid #dee2e6',
+                        borderRadius: '10px',
+                        fontSize: '0.9rem',
                         fontFamily: 'Poppins, sans-serif',
-                        background: '#f9f9f9',
-                        transition: 'all 0.2s',
+                        background: '#f8fafc',
                         boxSizing: 'border-box'
                       }}
-                      onFocus={(e) => {
-                        e.target.style.border = '2px solid #6f0022';
-                        e.target.style.background = '#fff';
-                        e.target.style.boxShadow = '0 4px 12px rgba(111, 0, 34, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.border = '1px solid #e0e7ff';
-                        e.target.style.background = '#f9f9f9';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                      title="Start date cannot be in the past"
                     />
                   </div>
-                </div>
-
-                {/* End Date and Active Status */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.8rem', marginBottom: '1.8rem' }}>
                   <div>
                     <label style={{
                       display: 'block',
-                      color: '#333',
-                      fontSize: '0.9rem',
+                      color: '#374151',
+                      fontSize: '0.78rem',
                       fontWeight: 600,
-                      marginBottom: '0.6rem',
+                      marginBottom: '0.4rem',
                       textTransform: 'uppercase',
-                      letterSpacing: '0.3px'
+                      letterSpacing: '0.4px'
                     }}>
                       End Date
                     </label>
@@ -3326,138 +3360,241 @@ export default function AdminDashboardPage() {
                       min={new Date().toISOString().split('T')[0]}
                       style={{
                         width: '100%',
-                        padding: '0.95rem 1.1rem',
-                        border: '1px solid #e0e7ff',
-                        borderRadius: '12px',
-                        fontSize: '1rem',
+                        padding: '0.7rem 0.85rem',
+                        border: '1px solid #dee2e6',
+                        borderRadius: '10px',
+                        fontSize: '0.9rem',
                         fontFamily: 'Poppins, sans-serif',
-                        background: '#f9f9f9',
-                        transition: 'all 0.2s',
+                        background: '#f8fafc',
                         boxSizing: 'border-box'
                       }}
-                      onFocus={(e) => {
-                        e.target.style.border = '2px solid #6f0022';
-                        e.target.style.background = '#fff';
-                        e.target.style.boxShadow = '0 4px 12px rgba(111, 0, 34, 0.1)';
-                      }}
-                      onBlur={(e) => {
-                        e.target.style.border = '1px solid #e0e7ff';
-                        e.target.style.background = '#f9f9f9';
-                        e.target.style.boxShadow = 'none';
-                      }}
-                      title="End date cannot be in the past"
                     />
-                  </div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    paddingBottom: '0.5rem'
-                  }}>
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.8rem',
-                      padding: '0.8rem 1.1rem',
-                      background: '#f9f9f9',
-                      borderRadius: '12px',
-                      border: '1px solid #e0e7ff'
-                    }}>
-                      <input
-                        type="checkbox"
-                        id="isActiveBanner"
-                        checked={bannerForm.isActive}
-                        onChange={(e) => setBannerForm({ ...bannerForm, isActive: e.target.checked })}
-                        style={{
-                          width: '18px',
-                          height: '18px',
-                          cursor: 'pointer',
-                          accentColor: '#6f0022'
-                        }}
-                      />
-                      <label htmlFor="isActiveBanner" style={{
-                        fontWeight: 600,
-                        color: '#333',
-                        cursor: 'pointer',
-                        margin: 0,
-                        fontSize: '0.95rem'
-                      }}>
-                        Active
-                      </label>
-                    </div>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '1rem',
-                  flexWrap: 'wrap',
-                  marginTop: '2rem',
-                  paddingTop: '1.5rem',
-                  borderTop: '1px solid #f0f0f0'
-                }}>
-                  <button
-                    type="button"
-                    onClick={() => { setIsAddBannerModalOpen(false); setIsEditBannerModalOpen(false); }}
+                {/* Active toggle */}
+                <label
+                  htmlFor="isActiveBanner"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    padding: '0.75rem 0.85rem',
+                    background: '#f8fafc',
+                    border: '1px solid #dee2e6',
+                    borderRadius: '10px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <div>
+                    <div style={{ fontWeight: 600, color: '#1f2937', fontSize: '0.9rem' }}>
+                      Active
+                    </div>
+                    <div style={{ color: '#6b7280', fontSize: '0.75rem', marginTop: '0.1rem' }}>
+                      Show this banner on the home page
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    id="isActiveBanner"
+                    checked={bannerForm.isActive}
+                    onChange={(e) => setBannerForm({ ...bannerForm, isActive: e.target.checked })}
                     style={{
-                      border: '1px solid #e0e7ff',
-                      color: '#666',
-                      background: '#f9f9f9',
-                      padding: '0.85rem 1.6rem',
-                      fontSize: '0.95rem',
-                      borderRadius: '999px',
-                      fontWeight: 600,
+                      width: '20px',
+                      height: '20px',
                       cursor: 'pointer',
-                      transition: 'all 0.2s'
+                      accentColor: '#6f0022'
                     }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background = '#f1f1f1';
-                      e.target.style.border = '1px solid #d0d0d0';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background = '#f9f9f9';
-                      e.target.style.border = '1px solid #e0e7ff';
-                    }}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSavingBanner}
-                    style={{
-                      background: isSavingBanner ? '#c9c9c9' : 'linear-gradient(135deg, #6f0022, #8b0029)',
-                      color: '#fff',
-                      border: 'none',
-                      padding: '0.85rem 2rem',
-                      borderRadius: '999px',
-                      fontWeight: 700,
-                      fontSize: '0.95rem',
-                      cursor: isSavingBanner ? 'not-allowed' : 'pointer',
-                      transition: 'all 0.2s',
-                      boxShadow: isSavingBanner ? 'none' : '0 8px 16px rgba(111, 0, 34, 0.2)'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isSavingBanner) {
-                        e.target.style.boxShadow = '0 12px 24px rgba(111, 0, 34, 0.3)';
-                        e.target.style.transform = 'translateY(-2px)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isSavingBanner) {
-                        e.target.style.boxShadow = '0 8px 16px rgba(111, 0, 34, 0.2)';
-                        e.target.style.transform = 'translateY(0)';
-                      }
-                    }}
-                  >
-                    {isSavingBanner ? 'Saving...' : (isEditBannerModalOpen ? 'Update Banner' : 'Create Banner')}
-                  </button>
-                </div>
+                  />
+                </label>
               </form>
+
+              {/* Sticky footer actions */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1.4fr',
+                gap: '0.5rem',
+                padding: '0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px))',
+                borderTop: '1px solid #f1e8ea',
+                background: '#f9f7f4',
+                flexShrink: 0
+              }}>
+                <button
+                  type="button"
+                  onClick={() => { setIsAddBannerModalOpen(false); setIsEditBannerModalOpen(false); }}
+                  style={{
+                    border: '1px solid #dee2e6',
+                    color: '#6b7280',
+                    background: '#fff',
+                    padding: '0.85rem',
+                    fontSize: '0.9rem',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={isEditBannerModalOpen ? updateBanner : createBanner}
+                  disabled={isSavingBanner}
+                  style={{
+                    background: isSavingBanner ? '#c9c9c9' : '#6f0022',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '0.85rem',
+                    fontSize: '0.9rem',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                    cursor: isSavingBanner ? 'not-allowed' : 'pointer',
+                    boxShadow: isSavingBanner ? 'none' : '0 6px 14px rgba(111, 0, 34, 0.2)'
+                  }}
+                >
+                  {isSavingBanner ? 'Saving...' : (isEditBannerModalOpen ? 'Update Banner' : 'Create Banner')}
+                </button>
+              </div>
             </div>
           </div>
         )}
+        {activeSection === 'profile' && (
+          <section style={{
+            background: '#fff',
+            borderRadius: '12px',
+            padding: '2rem 1.5rem',
+            border: '1px solid #e9ecef',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '1.5rem'
+          }}>
+            <h1 style={{
+              margin: 0,
+              fontSize: '1.4rem',
+              fontFamily: 'Cormorant Garamond, serif',
+              fontWeight: 600,
+              letterSpacing: '0.5px',
+              color: '#6f0022',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.6rem',
+              textTransform: 'uppercase',
+              textAlign: 'center'
+            }}>
+              <FiShield size={28} />
+              Admin Dashboard
+            </h1>
+
+            <div style={{
+              width: '88px',
+              height: '88px',
+              borderRadius: '50%',
+              background: '#e0bf63',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '2.4rem',
+              fontWeight: 700,
+              color: '#3d2b00'
+            }}>
+              {staffUser.fullName?.charAt(0).toUpperCase()}
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontWeight: 600, fontSize: '1.1rem', color: '#1f2937' }}>
+                {staffUser.fullName}
+              </div>
+              <div style={{ fontSize: '0.9rem', color: '#6b7280', marginTop: '0.25rem' }}>
+                {staffUser.email}
+              </div>
+            </div>
+
+            <button
+              onClick={() => authManager.logout()}
+              onMouseEnter={() => setIsLogoutHovered(true)}
+              onMouseLeave={() => setIsLogoutHovered(false)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.6rem',
+                width: '100%',
+                maxWidth: '320px',
+                padding: '0.85rem 1.25rem',
+                background: isLogoutHovered ? '#5a001b' : '#6f0022',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '1rem',
+                fontFamily: 'Poppins, sans-serif',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+            >
+              <FiLogOut size={20} />
+              Logout
+            </button>
+          </section>
+        )}
       </main>
+
+      {/* Bottom Navigation */}
+      <nav style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        background: '#6f0022',
+        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+        boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.18)',
+        zIndex: 200,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'stretch',
+          justifyContent: 'space-around',
+          maxWidth: '720px',
+          margin: '0 auto'
+        }}>
+          {navItems.map((item) => {
+            const isActive = activeSection === item.key;
+            const IconComponent = item.icon;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => setActiveSection(item.key)}
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.25rem',
+                  padding: '0.6rem 0.25rem',
+                  background: 'transparent',
+                  color: isActive ? '#e0bf63' : 'rgba(255, 255, 255, 0.75)',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'Poppins, sans-serif',
+                  fontSize: '0.7rem',
+                  fontWeight: isActive ? 600 : 500,
+                  transition: 'color 0.2s'
+                }}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
+              >
+                <IconComponent size={22} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }
