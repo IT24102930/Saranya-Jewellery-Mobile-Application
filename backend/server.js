@@ -35,6 +35,7 @@ dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === 'production';
 
 // CORS origin validator - allows localhost, Render URL, and local IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
 const corsOriginValidator = (origin, callback) => {
@@ -93,10 +94,10 @@ app.use(session({
   }),
   cookie: {
     path: '/',
-    secure: false, // Must be false for sameSite: 'none' to work on HTTP in development
+    secure: isProduction,
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'none' // Allows cookies on cross-origin fetch (different ports)
+    sameSite: isProduction ? 'none' : 'lax'
   }
 }));
 
