@@ -92,10 +92,11 @@ app.use(session({
     }
   }),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    path: '/', // Ensure cookie is sent for all paths on this domain
+    secure: process.env.NODE_ENV === 'production' ? true : false, // Allow non-HTTPS in development
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Allow cross-site cookies in production
+    sameSite: 'lax' // 'lax' works for same-site + top-level navigation, 'none' requires secure: true for production
   }
 }));
 
