@@ -37,6 +37,11 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Required on Render/Heroku-style proxies so secure cookies can be set over HTTPS.
+if (isProduction) {
+  app.set('trust proxy', 1);
+}
+
 // CORS origin validator - allows localhost, Render URL, and local IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
 const corsOriginValidator = (origin, callback) => {
   // Allow if no origin (same-origin requests)
