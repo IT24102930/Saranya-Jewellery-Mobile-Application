@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { connectionDB } from './config/db.js';
 import dns from 'node:dns';
+import fs from 'fs';
 import authRoutes from './routes/auth.js';
 import staffRoutes from './routes/staff.js';
 import adminRoutes from './routes/admin.js';
@@ -32,7 +33,7 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 const frontendDistDir = path.join(__dirname, '..', 'frontend', 'dist');
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -89,13 +90,23 @@ app.use('/api/banners', bannerRoutes);
 // Serve uploaded images from backend storage
 app.use('/uploads', express.static(uploadsDir));
 
-// Serve built React frontend
-app.use(express.static(frontendDistDir));
+// Serve built React frontend if present, otherwise expose helpful message
+const indexFile = path.join(frontendDistDir, 'index.html');
+if (fs.existsSync(indexFile)) {
+  app.use(express.static(frontendDistDir));
 
-// SPA fallback for frontend routes
-app.get(/^(?!\/api\/).*/, (req, res) => {
-  res.sendFile(path.join(frontendDistDir, 'index.html'));
-});
+  // SPA fallback for frontend routes
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.sendFile(indexFile);
+  });
+} else {
+  console.warn(`Frontend build not found at ${indexFile}. Static files will not be served.`);
+  app.get(/^(?!\/api\/).*/, (req, res) => {
+    res.status(200).send(
+      '<h1>Backend running</h1><p>Frontend not built. Please ensure the frontend is built during deployment (run `npm run frontend:build`).</p>'
+    );
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
