@@ -10,6 +10,7 @@
     "mobile:install": "npm --prefix mobile install",
     "mobile:start": "npm --prefix mobile run start",
     "frontend:build": "npm --prefix frontend run build",
+    "build": "npm --prefix frontend install && npm run frontend:build",
     "start:mern": "npm run frontend:build && node backend/server.js"
   },
   "keywords": [],

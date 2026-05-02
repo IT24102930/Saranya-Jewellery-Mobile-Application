@@ -12,9 +12,16 @@ const defaultApiBase =
 const API_BASE = import.meta.env.VITE_API_BASE_URL || defaultApiBase;
 const originalFetch = window.fetch.bind(window);
 
-window.fetch = (input, init) => {
+window.fetch = (input, init = {}) => {
   if (typeof input === 'string' && input.startsWith('/api')) {
-    return originalFetch(`${API_BASE}${input}`, init);
+    return originalFetch(`${API_BASE}${input}`, {
+      ...init,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...init.headers
+      }
+    });
   }
 
   return originalFetch(input, init);
