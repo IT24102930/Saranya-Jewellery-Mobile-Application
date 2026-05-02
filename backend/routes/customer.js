@@ -114,15 +114,23 @@ router.post('/login', async (req, res) => {
     req.session.fullName = customer.fullName;
     req.session.isCustomer = true;
 
-    res.json({
-      message: 'Login successful',
-      customer: {
-        id: customer._id,
-        email: customer.email,
-        fullName: customer.fullName,
-        phone: customer.phone,
-        loyaltyPoints: customer.loyaltyPoints
+    // Explicitly save session before sending response
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ message: 'Session error during login' });
       }
+
+      res.json({
+        message: 'Login successful',
+        customer: {
+          id: customer._id,
+          email: customer.email,
+          fullName: customer.fullName,
+          phone: customer.phone,
+          loyaltyPoints: customer.loyaltyPoints
+        }
+      });
     });
   } catch (error) {
     console.error('Customer login error:', error);

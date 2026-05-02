@@ -102,16 +102,24 @@ router.post('/login', async (req, res) => {
     req.session.status = staff.status;
     req.session.isActive = staff.isActive;
 
-    res.json({
-      message: 'Login successful',
-      staff: {
-        id: staff._id,
-        email: staff.email,
-        fullName: staff.fullName,
-        role: staff.role,
-        status: staff.status,
-        isActive: staff.isActive
+    // Explicitly save session before sending response
+    req.session.save((err) => {
+      if (err) {
+        console.error('Session save error:', err);
+        return res.status(500).json({ message: 'Session error during login' });
       }
+
+      res.json({
+        message: 'Login successful',
+        staff: {
+          id: staff._id,
+          email: staff.email,
+          fullName: staff.fullName,
+          role: staff.role,
+          status: staff.status,
+          isActive: staff.isActive
+        }
+      });
     });
   } catch (error) {
     console.error('Login error:', error);
