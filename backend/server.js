@@ -35,14 +35,35 @@ dns.setServers(["1.1.1.1", "8.8.8.8"]);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  process.env.APP_URL,
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'http://127.0.0.1:5173',
-  'http://127.0.0.1:3000',
-].filter(Boolean);
+
+// CORS origin validator - allows localhost, Render URL, and local IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+const corsOriginValidator = (origin, callback) => {
+  // Allow if no origin (same-origin requests)
+  if (!origin) return callback(null, true);
+  
+  // Allow Render backend serving frontend
+  if (origin === process.env.APP_URL || origin === process.env.FRONTEND_URL) {
+    return callback(null, true);
+  }
+  
+  // Allow localhost/127.0.0.1
+  if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+    return callback(null, true);
+  }
+  
+  // Allow local IP ranges (192.168.x.x, 10.x.x.x, 172.16-31.x.x)
+  if (/^https?:\/\/(192\.168|10\.|172\.(1[6-9]|2[0-9]|3[01]))\./.test(origin)) {
+    return callback(null, true);
+  }
+  
+  // Reject all other origins in production
+  if (process.env.NODE_ENV === 'production') {
+    return callback(new Error('CORS not allowed'));
+  }
+  
+  // Allow in development
+  callback(null, true);
+};
 
 const frontendDistDir = path.join(__dirname, '..', 'frontend', 'dist');
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -54,7 +75,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(cors({
-  origin: allowedOrigins,
+  origin: corsOriginValidator,
   credentials: true,
 }));
 

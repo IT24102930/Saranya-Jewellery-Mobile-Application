@@ -57,7 +57,7 @@ function getLanWebUrl() {
     return process.env.EXPO_PUBLIC_WEB_URL || FALLBACK_WEB_URL;
   }
 
-  return process.env.EXPO_PUBLIC_WEB_URL || `http://${host}:3000`;
+  return process.env.EXPO_PUBLIC_WEB_URL || `http://${host}:5173`;
 }
 
 function joinUrl(baseUrl, path) {
