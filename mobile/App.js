@@ -28,14 +28,6 @@ const STAFF_ROUTE_PREFIXES = [
   '/customer-care-dashboard',
   '/loyalty-management-dashboard'
 ]
-const CUSTOMER_BOTTOM_ROUTES = [
-  '/customer-dashboard',
-  '/customer-shop',
-  '/customer-cart',
-  '/customer-orders',
-  '/customer-support',
-  '/customer-loyalty'
-];
 const CUSTOMER_AUTH_ROUTES = [
   '/customer-login',
   '/customer-register',
@@ -92,10 +84,6 @@ function getStaffPageTitle(pathname) {
   if (STAFF_PAGE_TITLES[pathname]) return STAFF_PAGE_TITLES[pathname];
   const match = Object.keys(STAFF_PAGE_TITLES).find((prefix) => pathname.startsWith(`${prefix}/`));
   return match ? STAFF_PAGE_TITLES[match] : null;
-}
-
-function isCustomerBottomRoute(pathname) {
-  return CUSTOMER_BOTTOM_ROUTES.includes(pathname);
 }
 
 function isCustomerAuthRoute(pathname) {
@@ -166,15 +154,35 @@ function getHideCustomerHeaderScript(pathname) {
           // Ignore parse and storage access errors.
         }
       }
-      
+
+      function postCustomerAuth() {
+        try {
+          if (!window.ReactNativeWebView || !window.ReactNativeWebView.postMessage) {
+            return;
+          }
+          fetch('/api/customer/me', { credentials: 'same-origin' })
+            .then(function (response) {
+              var ok = response && response.ok;
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'customerAuth', authenticated: !!ok }));
+            })
+            .catch(function () {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'customerAuth', authenticated: false }));
+            });
+        } catch (_error) {
+          // Ignore.
+        }
+      }
+
       hideHeaderFooter();
       postCartCount();
+      postCustomerAuth();
       setTimeout(hideHeaderFooter, 100);
       setTimeout(hideHeaderFooter, 500);
       setTimeout(hideHeaderFooter, 1000);
       setTimeout(postCartCount, 100);
       setTimeout(postCartCount, 500);
       setTimeout(postCartCount, 1000);
+      setTimeout(postCustomerAuth, 300);
 
       if (window.__saranyaCartCountInterval) {
         clearInterval(window.__saranyaCartCountInterval);
@@ -182,7 +190,7 @@ function getHideCustomerHeaderScript(pathname) {
       window.__saranyaCartCountInterval = setInterval(postCartCount, 1000);
 
       window.addEventListener('storage', postCartCount);
-      
+
       document.addEventListener('DOMContentLoaded', hideHeaderFooter);
     })();
     true;
@@ -200,13 +208,12 @@ export default function App() {
   const [webViewKey, setWebViewKey] = useState(0);
   const [pageTitle, setPageTitle] = useState('Home');
   const [currentPath, setCurrentPath] = useState(HOME_ROUTE);
-  const [isCustomerSession, setIsCustomerSession] = useState(false);
   const [cartCount, setCartCount] = useState(0);
+  const [isCustomerLoggedIn, setIsCustomerLoggedIn] = useState(false);
   const webViewRef = useRef(null);
   const webUrl = useMemo(() => getLanWebUrl(), []);
   const currentWebUrl = useMemo(() => joinUrl(webUrl, webRoute), [webRoute, webUrl]);
-  const shouldShowCustomerBar = isCustomerBottomRoute(currentPath);
-  const shouldShowGenericBar = !shouldShowCustomerBar && !isStaffRoute(currentPath) && !isCustomerAuthRoute(currentPath);
+  const shouldShowBottomBar = !isStaffRoute(currentPath) && !isCustomerAuthRoute(currentPath);
   const injectedMobileCss = useMemo(() => getHideCustomerHeaderScript(currentPath), [currentPath]);
 
   useEffect(() => {
@@ -254,26 +261,12 @@ export default function App() {
     setPageTitle(tabConfig[tab].label);
   };
 
-  const openCustomerRoute = (route, title) => {
-    setActiveTab(route);
-    setHasLoadError(false);
-    setHasLoadedOnce(false);
-    setCanGoBack(false);
-    setIsCustomerSession(true);
-    setIsProfileScreen(false);
-    setWebRoute(route);
-    setCurrentPath(route);
-    setWebViewKey((prev) => prev + 1);
-    setPageTitle(title);
-  };
-
   const openProfileLogin = (route, title) => {
     setActiveTab(TAB_PROFILE);
     setIsProfileScreen(false);
     setHasLoadError(false);
     setHasLoadedOnce(false);
     setCanGoBack(false);
-    setIsCustomerSession(false);
     setWebRoute(route);
     setCurrentPath(route);
     setWebViewKey((prev) => prev + 1);
@@ -373,6 +366,9 @@ export default function App() {
                 if (data.type === 'cartCount') {
                   setCartCount(Number(data.count || 0));
                 }
+                if (data.type === 'customerAuth') {
+                  setIsCustomerLoggedIn(Boolean(data.authenticated));
+                }
               } catch (_error) {
                 // Ignore unrelated WebView messages.
               }
@@ -382,9 +378,6 @@ export default function App() {
               const nextPath = getPathname(navState.url);
               if (nextPath) {
                 setCurrentPath(nextPath);
-                if (nextPath === '/customer-dashboard' || nextPath === '/customer-shop' || nextPath === '/customer-cart' || nextPath === '/customer-orders' || nextPath === '/customer-support' || nextPath === '/customer-loyalty') {
-                  setIsCustomerSession(true);
-                }
                 if (isStaffRoute(nextPath)) {
                   setIsProfileScreen(false);
                   const staffTitle = getStaffPageTitle(nextPath);
@@ -405,50 +398,100 @@ export default function App() {
         )}
       </View>
 
-      {shouldShowCustomerBar && isCustomerSession ? (
-        <View style={styles.customerBottomBar}>
-          {[
-            { label: 'Shop', route: '/customer-shop', icon: 'shopping-bag', title: 'Shop' },
-            { label: 'Cart', route: '/customer-cart', icon: 'shopping-cart', title: 'Cart' },
-            { label: 'Orders', route: '/customer-orders', icon: 'clipboard', title: 'My Orders' },
-            { label: 'Support', route: '/customer-support', icon: 'life-buoy', title: 'Support' },
-            { label: 'Account', route: '/customer-dashboard', icon: 'user', title: 'Account' },
-          ].map((item) => (
+      {shouldShowBottomBar ? (
+        isCustomerLoggedIn ? (
+          <View style={styles.customerBottomBar}>
             <NavButton
-              key={item.route}
-              label={item.label}
-              active={currentPath === item.route}
-              onPress={() => openCustomerRoute(item.route, item.title)}
-              icon={item.icon}
+              label="Home"
+              active={activeTab === TAB_HOME && !isProfileScreen && webRoute === HOME_ROUTE}
+              onPress={() => openTab(TAB_HOME)}
+              icon="home"
               compact
-              badge={item.route === '/customer-cart' ? cartCount : 0}
             />
-          ))}
-        </View>
-      ) : shouldShowGenericBar ? (
-        <View style={styles.bottomBar}>
-          <NavButton
-            label="Home"
-            active={activeTab === TAB_HOME && !isProfileScreen && webRoute === HOME_ROUTE}
-            onPress={() => openTab(TAB_HOME)}
-            icon="home"
-            compact
-          />
-          <NavButton
-            label="Shop"
-            active={activeTab === TAB_SEARCH && !isProfileScreen}
-            onPress={() => openTab(TAB_SEARCH)}
-            icon="search"
-            compact
-          />
-          <NavButton
-            label="Profile"
-            active={activeTab === TAB_PROFILE}
-            onPress={() => openTab(TAB_PROFILE)}
-            icon="user"
-            compact
-          />
-        </View>
+            <NavButton
+              label="Shop"
+              active={currentPath === '/customer-shop'}
+              onPress={() => {
+                setActiveTab(TAB_SEARCH);
+                setIsProfileScreen(false);
+                setWebRoute('/customer-shop');
+                setCurrentPath('/customer-shop');
+                setWebViewKey((prev) => prev + 1);
+                setPageTitle('Shop');
+              }}
+              icon="shopping-bag"
+              compact
+            />
+            <NavButton
+              label="Cart"
+              active={currentPath === '/customer-cart'}
+              onPress={() => {
+                setActiveTab(TAB_SEARCH);
+                setIsProfileScreen(false);
+                setWebRoute('/customer-cart');
+                setCurrentPath('/customer-cart');
+                setWebViewKey((prev) => prev + 1);
+                setPageTitle('Cart');
+              }}
+              icon="shopping-cart"
+              compact
+              badge={cartCount}
+            />
+            <NavButton
+              label="Orders"
+              active={currentPath === '/customer-orders'}
+              onPress={() => {
+                setActiveTab(TAB_SEARCH);
+                setIsProfileScreen(false);
+                setWebRoute('/customer-orders');
+                setCurrentPath('/customer-orders');
+                setWebViewKey((prev) => prev + 1);
+                setPageTitle('My Orders');
+              }}
+              icon="clipboard"
+              compact
+            />
+            <NavButton
+              label="Account"
+              active={currentPath === '/customer-dashboard'}
+              onPress={() => {
+                setActiveTab(TAB_PROFILE);
+                setIsProfileScreen(false);
+                setWebRoute('/customer-dashboard');
+                setCurrentPath('/customer-dashboard');
+                setWebViewKey((prev) => prev + 1);
+                setPageTitle('Account');
+              }}
+              icon="user"
+              compact
+            />
+          </View>
+        ) : (
+          <View style={styles.bottomBar}>
+            <NavButton
+              label="Home"
+              active={activeTab === TAB_HOME && !isProfileScreen && webRoute === HOME_ROUTE}
+              onPress={() => openTab(TAB_HOME)}
+              icon="home"
+              compact
+            />
+            <NavButton
+              label="Shop"
+              active={activeTab === TAB_SEARCH && !isProfileScreen}
+              onPress={() => openTab(TAB_SEARCH)}
+              icon="search"
+              compact
+              badge={cartCount}
+            />
+            <NavButton
+              label="Profile"
+              active={activeTab === TAB_PROFILE}
+              onPress={() => openTab(TAB_PROFILE)}
+              icon="user"
+              compact
+            />
+          </View>
+        )
       ) : null}
     </SafeAreaView>
   );

@@ -20,13 +20,24 @@ export default function CustomerShopPage() {
   const [cart, setCart] = useState(() => JSON.parse(localStorage.getItem('saranyaCart') || '[]'));
   const [reviewSummaryByProduct, setReviewSummaryByProduct] = useState({});
   const [filters, setFilters] = useState({ category: '', karat: '', isAvailable: '' });
+  const [searchText, setSearchText] = useState('');
   const [addingProductId, setAddingProductId] = useState('');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   const isAuthenticated = Boolean(customer);
   const cartCount = useMemo(
     () => cart.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
     [cart]
   );
+
+  const visibleProducts = useMemo(() => {
+    const term = searchText.trim().toLowerCase();
+    if (!term) return products;
+    return products.filter((product) => {
+      const fields = [product.name, product.category, product.karat];
+      return fields.some((value) => String(value || '').toLowerCase().includes(term));
+    });
+  }, [products, searchText]);
 
   useEffect(() => {
     document.title = 'Shop - Saranya Jewellery';
@@ -143,6 +154,8 @@ export default function CustomerShopPage() {
 
   const currentPath = window.location.pathname;
   const returnTo = encodeURIComponent(getCurrentReturnPath());
+  const activeFilterCount =
+    (filters.category ? 1 : 0) + (filters.karat ? 1 : 0) + (filters.isAvailable ? 1 : 0);
 
   return (
     <>
@@ -226,158 +239,179 @@ export default function CustomerShopPage() {
         </div>
       </header>
 
-      <main>
-        <div className="container" style={{ paddingTop: '2rem' }}>
-          <h1
-            style={{
-              textAlign: 'center',
-              marginBottom: '2rem',
-              fontFamily: "'Cormorant Garamond', serif",
-              color: 'var(--brand-burgundy)'
-            }}
-          >
-            Fine Jewellery Collection
-          </h1>
+      <main className="shop-page">
+        <section className="shop-hero">
+          <h1 className="shop-hero-title">Fine Jewellery Collection</h1>
+          <p className="shop-hero-subtitle">Discover handcrafted pieces curated for every moment.</p>
+        </section>
 
-          <div
-            className="filter-container"
-            style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap', justifyContent: 'center' }}
-          >
-            <div>
-              <label htmlFor="categoryFilter">Category:</label>
-              <select
-                id="categoryFilter"
-                value={filters.category}
-                onChange={(e) => setFilters((prev) => ({ ...prev, category: e.target.value }))}
+        <div className="shop-toolbar">
+          <div className="shop-search">
+            <i className="fas fa-search shop-search-icon" />
+            <input
+              type="search"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Search rings, necklaces, karat..."
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="search"
+            />
+            {searchText ? (
+              <button
+                type="button"
+                className="shop-search-clear"
+                onClick={() => setSearchText('')}
+                aria-label="Clear search"
               >
-                <option value="">All Categories</option>
-                {CATEGORIES.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="karatFilter">Karat:</label>
-              <select
-                id="karatFilter"
-                value={filters.karat}
-                onChange={(e) => setFilters((prev) => ({ ...prev, karat: e.target.value }))}
-              >
-                <option value="">All Types</option>
-                {KARATS.map((karat) => (
-                  <option key={karat} value={karat}>
-                    {karat}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label htmlFor="availabilityFilter">Availability:</label>
-              <select
-                id="availabilityFilter"
-                value={filters.isAvailable}
-                onChange={(e) => setFilters((prev) => ({ ...prev, isAvailable: e.target.value }))}
-              >
-                <option value="">All</option>
-                <option value="true">In Stock</option>
-                <option value="false">Out of Stock</option>
-              </select>
-            </div>
+                ×
+              </button>
+            ) : null}
           </div>
 
-          <div className="category-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '2rem' }}>
-            {loadingProducts ? (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: '#999' }}>Loading products...</div>
-            ) : null}
+          <div className="shop-chips" role="tablist">
+            <button
+              type="button"
+              className={`shop-chip ${!filters.category ? 'is-active' : ''}`}
+              onClick={() => setFilters((prev) => ({ ...prev, category: '' }))}
+            >
+              All
+            </button>
+            {CATEGORIES.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={`shop-chip ${filters.category === category ? 'is-active' : ''}`}
+                onClick={() => setFilters((prev) => ({ ...prev, category }))}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
 
-            {!loadingProducts && products.length === 0 ? (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem', color: '#999' }}>No products found</div>
-            ) : null}
+          <button
+            type="button"
+            className="shop-filter-toggle"
+            onClick={() => setShowAdvancedFilters((prev) => !prev)}
+            aria-expanded={showAdvancedFilters}
+          >
+            <i className="fas fa-sliders-h" /> Filters
+            {activeFilterCount > 0 ? <span className="shop-filter-count">{activeFilterCount}</span> : null}
+          </button>
 
-            {!loadingProducts
-              ? products.map((product) => {
-                  const summary = reviewSummaryByProduct[product._id] || { avgRating: 0, totalReviews: 0 };
-                  const hasReviews = Number(summary.totalReviews || 0) > 0;
+          {showAdvancedFilters ? (
+            <div className="shop-advanced-filters">
+              <div className="shop-filter-row">
+                <label htmlFor="karatFilter">Karat</label>
+                <select
+                  id="karatFilter"
+                  value={filters.karat}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, karat: e.target.value }))}
+                >
+                  <option value="">All Types</option>
+                  {KARATS.map((karat) => (
+                    <option key={karat} value={karat}>{karat}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="shop-filter-row">
+                <label htmlFor="availabilityFilter">Availability</label>
+                <select
+                  id="availabilityFilter"
+                  value={filters.isAvailable}
+                  onChange={(e) => setFilters((prev) => ({ ...prev, isAvailable: e.target.value }))}
+                >
+                  <option value="">All</option>
+                  <option value="true">In Stock</option>
+                  <option value="false">Out of Stock</option>
+                </select>
+              </div>
+              {activeFilterCount > 0 ? (
+                <button
+                  type="button"
+                  className="shop-clear-filters"
+                  onClick={() => setFilters({ category: '', karat: '', isAvailable: '' })}
+                >
+                  Clear all filters
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
-                  return (
-                    <div
-                      key={product._id}
-                      className="category-card"
-                      style={{
-                        cursor: 'pointer',
-                        padding: '1rem',
-                        background: 'white',
-                        borderRadius: '8px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                        transition: 'transform 0.3s'
-                      }}
-                      onClick={() => {
-                        window.location.href = `/customer-product?id=${encodeURIComponent(product._id)}`;
-                      }}
-                    >
+        <div className="shop-result-meta">
+          {loadingProducts ? 'Loading…' : `${visibleProducts.length} ${visibleProducts.length === 1 ? 'item' : 'items'}`}
+        </div>
+
+        <section className="shop-grid">
+          {loadingProducts ? (
+            <div className="shop-empty">Loading products...</div>
+          ) : null}
+
+          {!loadingProducts && visibleProducts.length === 0 ? (
+            <div className="shop-empty">No products match your search.</div>
+          ) : null}
+
+          {!loadingProducts
+            ? visibleProducts.map((product) => {
+                const summary = reviewSummaryByProduct[product._id] || { avgRating: 0, totalReviews: 0 };
+                const hasReviews = Number(summary.totalReviews || 0) > 0;
+                const isAdding = addingProductId === product._id;
+
+                return (
+                  <article
+                    key={product._id}
+                    className="shop-card"
+                    onClick={() => {
+                      window.location.href = `/customer-product?id=${encodeURIComponent(product._id)}`;
+                    }}
+                  >
+                    <div className="shop-card-image-wrap">
                       <img
                         src={product.imageUrl || '/SaranyaLOGO.jpg'}
                         alt={product.name}
-                        style={{ width: '100%', height: '250px', objectFit: 'cover', borderRadius: '4px' }}
+                        className="shop-card-image"
+                        loading="lazy"
                       />
-                      <div style={{ margin: '1rem 0 0.5rem', color: 'var(--brand-burgundy)', fontSize: '1.2rem', fontWeight: 600 }}>
-                        {product.name}
-                      </div>
-                      <p style={{ color: '#666', fontSize: '0.9rem', margin: '0.5rem 0' }}>
-                        {product.category} - {product.karat}
-                      </p>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', margin: '0.35rem 0 0.5rem' }}>
-                        <span style={{ color: '#e0bf63', fontSize: '0.95rem' }}>{renderStars(summary.avgRating)}</span>
-                        <span style={{ fontSize: '0.82rem', color: '#666' }}>
-                          {hasReviews ? `${Number(summary.avgRating || 0).toFixed(1)} (${summary.totalReviews})` : 'No reviews'}
-                        </span>
-                      </div>
-
-                      <p style={{ color: 'var(--brand-gold-strong)', fontWeight: 600, fontSize: '1.1rem', margin: '0.5rem 0' }}>
-                        Rs. {product.price?.toLocaleString() || 'N/A'}
-                      </p>
-                      <p style={{ color: '#666', fontSize: '0.85rem', margin: '0.25rem 0' }}>
-                        Stock: {product.stockQuantity ?? 0}
-                      </p>
-
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                        <span style={{ fontSize: '0.85rem', color: product.isAvailable ? '#28a745' : '#dc3545' }}>
-                          {product.isAvailable ? 'In Stock' : 'Out of Stock'}
-                        </span>
-                        {product.isAvailable ? (
-                          <button
-                            type="button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              addToCart(product);
-                            }}
-                            disabled={addingProductId === product._id}
-                            style={{
-                              background: 'var(--brand-burgundy)',
-                              color: 'white',
-                              border: 'none',
-                              padding: '0.5rem 1rem',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '0.9rem',
-                              opacity: addingProductId === product._id ? 0.7 : 1
-                            }}
-                          >
-                            <i className="fas fa-cart-plus" /> {addingProductId === product._id ? 'Adding...' : 'Add to Cart'}
-                          </button>
-                        ) : null}
-                      </div>
+                      <span className={`shop-stock-badge ${product.isAvailable ? 'is-in-stock' : 'is-out-stock'}`}>
+                        {product.isAvailable ? 'In Stock' : 'Out'}
+                      </span>
                     </div>
-                  );
-                })
-              : null}
-          </div>
-        </div>
+
+                    <div className="shop-card-body">
+                      <h3 className="shop-card-title">{product.name}</h3>
+                      <p className="shop-card-meta">
+                        {product.category}{product.karat ? ` · ${product.karat}` : ''}
+                      </p>
+
+                      <div className="shop-card-rating">
+                        <span className="shop-card-stars">{renderStars(summary.avgRating)}</span>
+                        <span className="shop-card-rating-text">
+                          {hasReviews ? `${Number(summary.avgRating || 0).toFixed(1)} (${summary.totalReviews})` : 'New'}
+                        </span>
+                      </div>
+
+                      <div className="shop-card-price">Rs. {product.price?.toLocaleString() || 'N/A'}</div>
+
+                      <button
+                        type="button"
+                        className="shop-add-btn"
+                        disabled={!product.isAvailable || isAdding}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          addToCart(product);
+                        }}
+                      >
+                        <i className="fas fa-cart-plus" />
+                        <span>{isAdding ? 'Adding…' : product.isAvailable ? 'Add' : 'Sold out'}</span>
+                      </button>
+                    </div>
+                  </article>
+                );
+              })
+            : null}
+        </section>
       </main>
     </>
   );

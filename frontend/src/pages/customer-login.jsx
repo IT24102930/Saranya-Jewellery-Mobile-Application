@@ -136,7 +136,7 @@ export default function CustomerLoginPage() {
 
           <div className={`alert ${alertState.message ? `alert-${alertState.type} show` : ''}`}>{alertState.message}</div>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <div className="form-group">
               <label htmlFor="email">Email Address</label>
               <input
@@ -147,6 +147,12 @@ export default function CustomerLoginPage() {
                 required
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="next"
               />
             </div>
 
@@ -160,6 +166,11 @@ export default function CustomerLoginPage() {
                 required
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
+                autoComplete="current-password"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                enterKeyHint="go"
               />
             </div>
 

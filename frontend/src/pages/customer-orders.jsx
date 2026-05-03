@@ -3,16 +3,16 @@ import authManager from '../auth.js';
 
 const FILTERS = ['all', 'Pending', 'Confirmed', 'Invoice Created', 'Payment Received', 'Preparing', 'Ready for Collection', 'Completed', 'Cancelled'];
 
-const STATUS_COLORS = {
-  Pending: '#ffc107',
-  Confirmed: '#17a2b8',
-  'Invoice Created': '#6f42c1',
-  'Payment Received': '#28a745',
-  Preparing: '#007bff',
-  'Ready for Collection': '#20c997',
-  Completed: '#28a745',
-  Cancelled: '#dc3545',
-  Refunded: '#e83e8c'
+const STATUS_TONE = {
+  Pending: 'warn',
+  Confirmed: 'info',
+  'Invoice Created': 'purple',
+  'Payment Received': 'success',
+  Preparing: 'info',
+  'Ready for Collection': 'success',
+  Completed: 'success',
+  Cancelled: 'danger',
+  Refunded: 'pink'
 };
 
 export default function CustomerOrdersPage() {
@@ -163,18 +163,7 @@ export default function CustomerOrdersPage() {
           <a href="/customer-cart" style={{ position: 'relative' }}>
             <i className="fas fa-shopping-cart header-icon" />
             {cartCount > 0 ? (
-              <span
-                style={{
-                  position: 'absolute',
-                  top: '-8px',
-                  right: '-8px',
-                  background: 'var(--brand-gold-strong)',
-                  color: 'white',
-                  borderRadius: '50%',
-                  padding: '2px 6px',
-                  fontSize: '0.7rem'
-                }}
-              >
+              <span style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--brand-gold-strong)', color: 'white', borderRadius: '50%', padding: '2px 6px', fontSize: '0.7rem' }}>
                 {cartCount}
               </span>
             ) : null}
@@ -182,192 +171,152 @@ export default function CustomerOrdersPage() {
         </div>
       </header>
 
-      <main>
-        <div className="container" style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
-          <h1 style={{ textAlign: 'center', marginBottom: '2rem', fontFamily: "'Cormorant Garamond', serif", color: 'var(--brand-burgundy)' }}>My Orders</h1>
+      <main className="orders-page">
+        <header className="orders-hero">
+          <h1 className="orders-title">My Orders</h1>
+          <p className="orders-subtitle">Track and manage your jewellery orders.</p>
+        </header>
 
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-            {FILTERS.map((status) => (
-              <button
-                key={status}
-                type="button"
-                className={`filter-btn ${filter === status ? 'active' : ''}`}
-                onClick={() => setFilter(status)}
-              >
-                {status === 'all' ? 'All Orders' : status}
-              </button>
-            ))}
+        <div className="orders-filters" role="tablist">
+          {FILTERS.map((status) => (
+            <button
+              key={status}
+              type="button"
+              className={`orders-filter-chip ${filter === status ? 'is-active' : ''}`}
+              onClick={() => setFilter(status)}
+            >
+              {status === 'all' ? 'All' : status}
+            </button>
+          ))}
+        </div>
+
+        {loading ? <div className="orders-empty">Loading orders…</div> : null}
+
+        {!loading && filteredOrders.length === 0 ? (
+          <div className="orders-empty">
+            <i className="fas fa-box orders-empty-icon" />
+            <h2>No orders found</h2>
+            <a href="/customer-shop" className="orders-empty-cta">Start Shopping</a>
           </div>
+        ) : null}
 
-          {loading ? <div style={{ textAlign: 'center', padding: '3rem', color: '#999' }}>Loading orders...</div> : null}
-          {!loading && filteredOrders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', background: 'white', borderRadius: '8px' }}>
-              <i className="fas fa-box" style={{ fontSize: '4rem', color: '#ddd', marginBottom: '1rem' }} />
-              <h2 style={{ color: '#999', marginBottom: '1rem' }}>No orders found</h2>
-              <a href="/customer-shop" style={{ display: 'inline-block', background: 'var(--brand-burgundy)', color: 'white', padding: '1rem 2rem', borderRadius: '4px', textDecoration: 'none' }}>
-                Start Shopping
-              </a>
-            </div>
-          ) : null}
+        {!loading
+          ? filteredOrders.map((order) => {
+              const isReady = order.status === 'Ready for Collection';
+              const tone = STATUS_TONE[order.status] || 'info';
 
-          {!loading
-            ? filteredOrders.map((order) => {
-                const isReady = order.status === 'Ready for Collection';
-
-                return (
-                  <div
-                    key={order._id}
-                    style={{
-                      background: 'white',
-                      padding: '1.5rem',
-                      borderRadius: '8px',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                      marginBottom: '1rem',
-                      border: isReady ? '2px solid #20c997' : 'none'
-                    }}
-                  >
-                    {isReady ? (
-                      <div style={{ background: '#d1f2eb', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', textAlign: 'center' }}>
-                        <p style={{ margin: 0, fontWeight: 700, color: '#0d6655', fontSize: '1.1rem' }}>Your jewellery is ready for collection</p>
-                        <p style={{ margin: '0.25rem 0 0', color: '#0d6655' }}>Please visit Saranya Jewellery to collect your order.</p>
-                      </div>
-                    ) : null}
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1rem' }}>
-                      <div>
-                        <h3 style={{ margin: '0 0 0.5rem', color: 'var(--brand-burgundy)' }}>Order #{order.orderNumber}</h3>
-                        <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>
-                          <i className="fas fa-calendar" /> {new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </p>
-                        <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}><i className="fas fa-box" /> {order.items.length} item(s)</p>
-                        {order.invoiceNumber ? (
-                          <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}><i className="fas fa-file-invoice" /> Invoice: {order.invoiceNumber}</p>
-                        ) : null}
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <span
-                          style={{
-                            display: 'inline-block',
-                            padding: '0.5rem 1rem',
-                            borderRadius: '20px',
-                            fontSize: '0.85rem',
-                            fontWeight: 600,
-                            background: STATUS_COLORS[order.status] || '#999',
-                            color: 'white'
-                          }}
-                        >
-                          {order.status}
-                        </span>
-                        <p style={{ fontSize: '1.3rem', fontWeight: 600, margin: '0.5rem 0 0', color: 'var(--brand-gold-strong)' }}>
-                          Rs. {Number(order.total || 0).toLocaleString()}
-                        </p>
-                      </div>
+              return (
+                <article key={order._id} className={`orders-card ${isReady ? 'is-ready' : ''}`}>
+                  {isReady ? (
+                    <div className="orders-ready-banner">
+                      <p className="orders-ready-title">Ready for Collection</p>
+                      <p className="orders-ready-body">Visit Saranya Jewellery to collect your order.</p>
                     </div>
+                  ) : null}
 
-                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                      {order.items.slice(0, 4).map((item, idx) => (
-                        <img
-                          key={`${order._id}-${idx}`}
-                          src={item.imageUrl || '/SaranyaLOGO.jpg'}
-                          alt={item.name}
-                          style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', flexShrink: 0 }}
-                        />
-                      ))}
-                      {order.items.length > 4 ? (
-                        <div style={{ width: '80px', height: '80px', background: '#f0f0f0', borderRadius: '4px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          +{order.items.length - 4}
-                        </div>
-                      ) : null}
+                  <div className="orders-card-head">
+                    <div className="orders-card-meta">
+                      <h3>Order #{order.orderNumber}</h3>
+                      <p><i className="fas fa-calendar" /> {new Date(order.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}</p>
+                      <p><i className="fas fa-box" /> {order.items.length} {order.items.length === 1 ? 'item' : 'items'}</p>
+                      {order.invoiceNumber ? <p><i className="fas fa-file-invoice" /> {order.invoiceNumber}</p> : null}
                     </div>
-
-                    <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                      <button type="button" onClick={() => viewOrderDetails(order._id)} style={{ flex: 1, minWidth: '150px', background: 'var(--brand-burgundy)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '4px', cursor: 'pointer' }}>
-                        <i className="fas fa-eye" /> View Details
-                      </button>
-                      {order.status === 'Completed' ? (
-                        <button type="button" onClick={() => reorder(order._id)} style={{ flex: 1, minWidth: '150px', background: 'var(--brand-gold-strong)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '4px', cursor: 'pointer' }}>
-                          <i className="fas fa-redo" /> Reorder
-                        </button>
-                      ) : null}
-                      {order.status === 'Pending' ? (
-                        <button type="button" onClick={() => cancelOrder(order._id)} style={{ flex: 1, minWidth: '150px', background: '#dc3545', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '4px', cursor: 'pointer' }}>
-                          <i className="fas fa-times" /> Cancel Order
-                        </button>
-                      ) : null}
+                    <div className="orders-card-status">
+                      <span className={`orders-status-pill tone-${tone}`}>{order.status}</span>
+                      <p className="orders-card-total">Rs. {Number(order.total || 0).toLocaleString()}</p>
                     </div>
                   </div>
-                );
-              })
-            : null}
-        </div>
+
+                  <div className="orders-card-thumbs">
+                    {order.items.slice(0, 4).map((item, idx) => (
+                      <img
+                        key={`${order._id}-${idx}`}
+                        src={item.imageUrl || '/SaranyaLOGO.jpg'}
+                        alt={item.name}
+                        loading="lazy"
+                      />
+                    ))}
+                    {order.items.length > 4 ? (
+                      <div className="orders-card-thumb-more">+{order.items.length - 4}</div>
+                    ) : null}
+                  </div>
+
+                  <div className="orders-card-actions">
+                    <button type="button" onClick={() => viewOrderDetails(order._id)} className="orders-action orders-action-primary">
+                      <i className="fas fa-eye" /> Details
+                    </button>
+                    {order.status === 'Completed' ? (
+                      <button type="button" onClick={() => reorder(order._id)} className="orders-action orders-action-gold">
+                        <i className="fas fa-redo" /> Reorder
+                      </button>
+                    ) : null}
+                    {order.status === 'Pending' ? (
+                      <button type="button" onClick={() => cancelOrder(order._id)} className="orders-action orders-action-danger">
+                        <i className="fas fa-times" /> Cancel
+                      </button>
+                    ) : null}
+                  </div>
+                </article>
+              );
+            })
+          : null}
       </main>
 
       {selectedOrder ? (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.7)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', padding: '2rem' }}>
-          <div style={{ background: 'white', borderRadius: '8px', maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative' }}>
-            <button type="button" onClick={() => setSelectedOrder(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', fontSize: '2rem', cursor: 'pointer', color: '#999', zIndex: 10 }}>
-              ×
-            </button>
+        <div className="orders-modal" role="dialog" aria-modal="true">
+          <div className="orders-modal-sheet">
+            <div className="orders-modal-header">
+              <h2>Order Details</h2>
+              <button type="button" className="orders-modal-close" onClick={() => setSelectedOrder(null)} aria-label="Close">×</button>
+            </div>
 
-            <div style={{ padding: '2rem' }}>
-              <h2 style={{ margin: '0 0 1.5rem', fontFamily: "'Cormorant Garamond', serif", color: 'var(--brand-burgundy)' }}>Order Details</h2>
-
+            <div className="orders-modal-body">
               {selectedOrder.status === 'Ready for Collection' ? (
-                <div style={{ background: '#d1f2eb', padding: '1.5rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'center' }}>
-                  <h3 style={{ margin: '0 0 0.5rem', color: '#0d6655' }}>Ready for Collection</h3>
-                  <p style={{ margin: 0, color: '#0d6655' }}>Your jewellery is ready. Please visit <strong>Saranya Jewellery</strong> to collect your order.</p>
+                <div className="orders-ready-banner">
+                  <p className="orders-ready-title">Ready for Collection</p>
+                  <p className="orders-ready-body">Visit <strong>Saranya Jewellery</strong> to collect your order.</p>
                 </div>
               ) : null}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 1rem', color: '#333' }}>Order Information</h3>
-                  <p style={{ margin: '0.5rem 0' }}><strong>Order Number:</strong> {selectedOrder.orderNumber}</p>
-                  <p style={{ margin: '0.5rem 0' }}><strong>Order Date:</strong> {new Date(selectedOrder.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  <p style={{ margin: '0.5rem 0' }}>
-                    <strong>Status:</strong>{' '}
-                    <span style={{ display: 'inline-block', padding: '0.3rem 0.8rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 600, background: STATUS_COLORS[selectedOrder.status] || '#999', color: 'white', marginLeft: '0.5rem' }}>
-                      {selectedOrder.status}
-                    </span>
-                  </p>
-                  <p style={{ margin: '0.5rem 0' }}><strong>Payment:</strong> {selectedOrder.paymentStatus || 'Pending'} ({selectedOrder.paymentMethod})</p>
-                  {selectedOrder.invoiceNumber ? <p style={{ margin: '0.5rem 0' }}><strong>Invoice:</strong> {selectedOrder.invoiceNumber}</p> : null}
-                </div>
+              <div className="orders-detail-grid">
+                <section className="orders-detail-block">
+                  <h3>Order Information</h3>
+                  <p><strong>Order #</strong> {selectedOrder.orderNumber}</p>
+                  <p><strong>Date</strong> {new Date(selectedOrder.createdAt).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                  <p><strong>Status</strong> <span className={`orders-status-pill tone-${STATUS_TONE[selectedOrder.status] || 'info'}`}>{selectedOrder.status}</span></p>
+                  <p><strong>Payment</strong> {selectedOrder.paymentStatus || 'Pending'} ({selectedOrder.paymentMethod})</p>
+                  {selectedOrder.invoiceNumber ? <p><strong>Invoice</strong> {selectedOrder.invoiceNumber}</p> : null}
+                </section>
 
-                <div>
-                  <h3 style={{ margin: '0 0 1rem', color: '#333' }}>Collection Information</h3>
-                  <p style={{ margin: '0.5rem 0' }}><strong>Phone:</strong> {selectedOrder.phoneNumber}</p>
-                  <p style={{ margin: '0.5rem 0' }}><strong>Collection:</strong> Visit Saranya Jewellery shop</p>
-                  <p style={{ margin: '0.5rem 0' }}><strong>Payment:</strong> Bank Transfer</p>
-                  {selectedOrder.paymentReceipt ? <p style={{ margin: '0.5rem 0' }}><strong>Receipt:</strong> <a href={selectedOrder.paymentReceipt} target="_blank" rel="noreferrer" style={{ color: 'var(--brand-burgundy)' }}>View Receipt</a></p> : null}
-                  {selectedOrder.orderNotes ? <p style={{ margin: '0.5rem 0' }}><strong>Notes:</strong> {selectedOrder.orderNotes}</p> : null}
-                </div>
+                <section className="orders-detail-block">
+                  <h3>Collection</h3>
+                  <p><strong>Phone</strong> {selectedOrder.phoneNumber}</p>
+                  <p><strong>Pickup</strong> Saranya Jewellery shop</p>
+                  <p><strong>Method</strong> Bank Transfer</p>
+                  {selectedOrder.paymentReceipt ? <p><strong>Receipt</strong> <a href={selectedOrder.paymentReceipt} target="_blank" rel="noreferrer">View</a></p> : null}
+                  {selectedOrder.orderNotes ? <p><strong>Notes</strong> {selectedOrder.orderNotes}</p> : null}
+                </section>
               </div>
 
-              <h3 style={{ margin: '0 0 1rem', color: '#333' }}>Order Items</h3>
-              <div style={{ marginBottom: '2rem' }}>
+              <h3 className="orders-items-heading">Order Items</h3>
+              <div className="orders-items-list">
                 {selectedOrder.items.map((item, idx) => (
-                  <div key={`${selectedOrder._id}-${idx}`} style={{ display: 'flex', gap: '1rem', padding: '1rem', border: '1px solid #eee', borderRadius: '4px', marginBottom: '1rem' }}>
-                    <img src={item.imageUrl || '/SaranyaLOGO.jpg'} alt={item.name} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px' }} />
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ margin: '0 0 0.5rem', color: 'var(--brand-burgundy)' }}>{item.name}</h4>
-                      <p style={{ color: '#666', margin: '0.25rem 0', fontSize: '0.9rem' }}>Quantity: {item.quantity}</p>
-                      <p style={{ color: 'var(--brand-gold-strong)', fontWeight: 600, margin: '0.25rem 0' }}>Rs. {Number(item.price || 0).toLocaleString()} each</p>
+                  <div key={`${selectedOrder._id}-${idx}`} className="orders-item-row">
+                    <img src={item.imageUrl || '/SaranyaLOGO.jpg'} alt={item.name} loading="lazy" />
+                    <div className="orders-item-info">
+                      <h4>{item.name}</h4>
+                      <p>Qty: {item.quantity}</p>
+                      <p className="orders-item-unit">Rs. {Number(item.price || 0).toLocaleString()} each</p>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontWeight: 600, fontSize: '1.1rem', margin: 0 }}>Rs. {Number(item.price * item.quantity || 0).toLocaleString()}</p>
-                    </div>
+                    <div className="orders-item-total">Rs. {Number(item.price * item.quantity || 0).toLocaleString()}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ background: '#f8f9fa', padding: '1.5rem', borderRadius: '4px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span>Subtotal:</span><span>Rs. {Number(selectedOrder.subtotal || 0).toLocaleString()}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}><span>Tax:</span><span>Rs. {Number(selectedOrder.tax || 0).toLocaleString()}</span></div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2rem', fontWeight: 600, paddingTop: '0.5rem', borderTop: '2px solid #ddd', marginTop: '0.5rem' }}>
-                  <span>Total:</span>
-                  <span style={{ color: 'var(--brand-gold-strong)' }}>Rs. {Number(selectedOrder.total || 0).toLocaleString()}</span>
-                </div>
+              <div className="orders-modal-summary">
+                <div className="cart-summary-row"><span>Subtotal</span><span>Rs. {Number(selectedOrder.subtotal || 0).toLocaleString()}</span></div>
+                <div className="cart-summary-row"><span>Tax</span><span>Rs. {Number(selectedOrder.tax || 0).toLocaleString()}</span></div>
+                <div className="cart-summary-total"><span>Total</span><strong>Rs. {Number(selectedOrder.total || 0).toLocaleString()}</strong></div>
               </div>
             </div>
           </div>
