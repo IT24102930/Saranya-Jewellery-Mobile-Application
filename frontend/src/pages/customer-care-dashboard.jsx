@@ -45,7 +45,6 @@ export default function CustomerCareDashboardPage() {
   const [staffUser, setStaffUser] = useState(null);
   const [activeTab, setActiveTab] = useState('overview'); // 'overview', 'offers', 'messages', 'reviews'
   const [isLogoutHovered, setIsLogoutHovered] = useState(false);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
   
   // Dashboard Overview state
@@ -62,6 +61,7 @@ export default function CustomerCareDashboardPage() {
   const [offers, setOffers] = useState([]);
   const [offersLoading, setOffersLoading] = useState(false);
   const [offersError, setOffersError] = useState('');
+  const [totalOffers, setTotalOffers] = useState(0);
   const [offerForm, setOfferForm] = useState({
     title: '',
     description: '',
@@ -122,32 +122,12 @@ export default function CustomerCareDashboardPage() {
     function handleResize() {
       const mobile = window.innerWidth < 1024;
       setIsMobileView(mobile);
-      if (!mobile) {
-        setIsMobileNavOpen(false);
-      }
     }
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  useEffect(() => {
-    if (!isMobileView || !isMobileNavOpen) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isMobileNavOpen, isMobileView]);
-
-  useEffect(() => {
-    if (isMobileView) {
-      setIsMobileNavOpen(false);
-    }
-  }, [activeTab, isMobileView]);
 
   // Auto-refresh appointment slots every 30 seconds to reflect customer bookings
   useEffect(() => {
@@ -163,32 +143,21 @@ export default function CustomerCareDashboardPage() {
   async function loadDashboardOverview() {
     try {
       setOverviewLoading(true);
-      // Prefer direct counts for promotions to avoid any mismatch
-      let activeOffers = 0;
+      // Fetch total offers (both Loyalty and Standard) from dashboard stats
+      let totalOffers = 0;
       try {
-        const promoResp = await authManager.apiRequest(`/api/messages?type=promotion&status=active&t=${Date.now()}`);
-        const promoData = await promoResp.json();
-        console.debug('promoResp.ok', promoResp.ok, 'promoData', promoData);
-        if (promoResp.ok && Array.isArray(promoData)) {
-          activeOffers = promoData.length;
-        } else if (promoResp.ok && promoData.length === undefined) {
-          // fallback when API returns object
-          activeOffers = 0;
+        const statsResp = await authManager.apiRequest(`/api/loyalty/dashboard/stats?t=${Date.now()}`);
+        const statsData = await statsResp.json();
+        console.debug('Dashboard stats response:', statsResp.ok, 'statsData:', statsData);
+        if (statsResp.ok && statsData.totalOffers !== undefined) {
+          totalOffers = statsData.totalOffers;
+          console.debug('Total offers fetched:', totalOffers);
+        } else {
+          console.warn('Failed to get total offers from stats, using fallback');
+          totalOffers = 0;
         }
       } catch (e) {
-        console.warn('Failed to load promotions directly, falling back to stats', e);
-      }
-
-      // If direct count failed, fall back to /api/messages/stats
-      if (!activeOffers) {
-        try {
-          const msgStatsResp = await authManager.apiRequest(`/api/messages/stats?t=${Date.now()}`);
-          const msgStats = await msgStatsResp.json();
-          console.debug('msgStatsResp.ok', msgStatsResp.ok, 'msgStats', msgStats);
-          activeOffers = msgStatsResp.ok ? (msgStats.activeMessages || 0) : 0;
-        } catch (e) {
-          console.warn('Failed to load message stats', e);
-        }
+        console.warn('Failed to load dashboard stats for total offers', e);
       }
 
       // Count total chats (not messages)
@@ -324,7 +293,7 @@ export default function CustomerCareDashboardPage() {
       }
 
       setDashboardStats({
-        activeOffers,
+        activeOffers: totalOffers,
         qaArticles,
         pendingQuestions,
         answeredRate,
@@ -339,6 +308,25 @@ export default function CustomerCareDashboardPage() {
   }
 
   // ============ OFFERS FUNCTIONS ============
+  async function fetchTotalOffers() {
+    try {
+      // Fetch total offers from dashboard stats
+      const statsResp = await authManager.apiRequest(`/api/loyalty/dashboard/stats?t=${Date.now()}`);
+      const statsData = await statsResp.json();
+      console.debug('Offers dashboard stats response:', statsResp.ok, 'statsData:', statsData);
+      if (statsResp.ok && statsData.totalOffers !== undefined) {
+        setTotalOffers(statsData.totalOffers);
+        console.debug('Total offers updated:', statsData.totalOffers);
+      } else {
+        console.warn('Failed to get total offers from stats');
+        setTotalOffers(0);
+      }
+    } catch (e) {
+      console.warn('Failed to load total offers for dashboard', e);
+      setTotalOffers(0);
+    }
+  }
+
   async function loadOffers() {
     try {
       setOffersLoading(true);
@@ -355,6 +343,9 @@ export default function CustomerCareDashboardPage() {
         console.error('Failed to load offers:', data);
         setOffersError(data.message || 'Failed to load standard offers');
       }
+      
+      // Also fetch total offers count
+      await fetchTotalOffers();
     } catch (err) {
       console.error('Error loading offers:', err);
       setOffersError(err.message || 'Error loading standard offers');
@@ -807,249 +798,18 @@ export default function CustomerCareDashboardPage() {
   if (!staffUser) return <p style={{ padding: '1rem' }}>Checking customer care access...</p>;
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#470012", position: 'relative' }}>
-      {isMobileView && (
-        <button
-          type="button"
-          onClick={() => setIsMobileNavOpen((prev) => !prev)}
-          style={{
-            position: 'fixed',
-            top: '1rem',
-            left: '1rem',
-            zIndex: 220,
-            border: 'none',
-            background: '#6f0022',
-            color: '#fff',
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
-            cursor: 'pointer'
-          }}
-          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
-        >
-          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
-        </button>
-      )}
-
-      {isMobileView && isMobileNavOpen && (
-        <div
-          onClick={() => setIsMobileNavOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(23, 12, 18, 0.45)',
-            zIndex: 140
-          }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside
-        style={{
-          width: "320px",
-          background: "#470012",
-          color: "#fff",
-          display: "flex",
-          flexDirection: "column",
-          position: "fixed",
-          height: "100vh",
-          left: 0,
-          top: 0,
-          zIndex: 200,
-          transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
-          transition: 'transform 0.25s ease',
-          boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
-        }}
-      >
-        {/* Sidebar Header */}
-        <div
-          style={{
-            padding: "2rem 1.5rem 1.5rem",
-            borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-          }}
-        >
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "1.2rem",
-              fontFamily: "Arial, serif",
-              fontWeight: 600,
-              letterSpacing: "0.5px",
-              color: "#e0bf63",
-              display: "flex",
-              alignItems: "center",
-              gap: "0.6rem",
-              textTransform: "uppercase",
-            }}
-          >
-            <FiGift size={28} />
-            Customer Care Management
-          </h1>
-        </div>
-
-        {/* Navigation Items */}
-        <nav
-          style={{
-            flex: 1,
-            padding: "1.5rem 1rem",
-            overflowY: "auto",
-          }}
-        >
-          <div
-            style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-          >
-            {[
-              {
-                id: "overview",
-                icon: FiBarChart2,
-                label: "Dashboard Overview",
-              },
-              { id: "offers", icon: FiGift, label: "Promotional Offers" },
-              {
-                id: "messages",
-                icon: FiMessageCircle,
-                label: "Customer Messages",
-              },
-              { id: "reviews", icon: FiStar, label: "Product Reviews" },
-              {
-                id: "appointments",
-                icon: FiCalendar,
-                label: "Appointment Slots",
-              },
-            ].map((item) => {
-              const isActive = activeTab === item.id;
-              const IconComponent = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    if (isMobileView) {
-                      setIsMobileNavOpen(false);
-                    }
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "1rem",
-                    width: "100%",
-                    padding: "1rem 1rem",
-                    background: isActive ? "#e0bf63" : "transparent",
-                    color: isActive ? "#3d2b00" : "#fff",
-                    border: "none",
-                    borderRadius: "10px",
-                    fontSize: "1.1rem",
-                    fontFamily: "Arial, sans-serif",
-                    fontWeight: isActive ? 600 : 500,
-                    cursor: "pointer",
-                    transition: "all 0.3s",
-                    textAlign: "left",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background =
-                        "rgba(224, 191, 99, 0.1)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = "transparent";
-                    }
-                  }}
-                >
-                  <IconComponent size={24} style={{ minWidth: "24px" }} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* User Profile Section */}
-        <div
-          style={{
-            padding: "1.5rem",
-            borderTop: "1px solid rgba(255, 255, 255, 0.1)",
-            display: "flex",
-            alignItems: "center",
-            gap: "1rem",
-          }}
-        >
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              borderRadius: "50%",
-              background: "#e0bf63",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.5rem",
-              fontWeight: 700,
-              color: "#3d2b00",
-              flexShrink: 0,
-            }}
-          >
-            {staffUser?.fullName?.charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
-              style={{
-                fontWeight: 600,
-                fontSize: "0.95rem",
-                whiteSpace: "nowrap",
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
-              {staffUser?.fullName?.split(" ")[0]}Herath
-              <p>customer care manager</p>
-            </div>
-          </div>
-          <button
-            onClick={() => authManager.logout()}
-            style={{
-              background: isLogoutHovered
-                ? "rgba(255, 255, 255, 0.3)"
-                : "rgba(255, 255, 255, 0.2)",
-              color: "#fff",
-              border: "none",
-              width: "32px",
-              height: "32px",
-              borderRadius: "50%",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: "1.2rem",
-              transition: "background 0.2s",
-              flexShrink: 0,
-            }}
-            title="Logout"
-            onMouseEnter={() => setIsLogoutHovered(true)}
-            onMouseLeave={() => setIsLogoutHovered(false)}
-          >
-            <FiLogOut size={20} />
-          </button>
-        </div>
-      </aside>
+    <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh", background: "#470012", position: 'relative' }}>
 
       {/* Main Content */}
       <main
         style={{
           flex: 1,
-          marginLeft: isMobileView ? 0 : "320px",
           overflow: "auto",
-          padding: isMobileView ? "4.75rem 0.75rem 0.75rem" : "2rem",
+          padding: "2rem 0.75rem 6.5rem 0.75rem",
           backgroundImage: "url('/jewelry-bg.jpg')",
           backgroundSize: "cover",
           backgroundPosition: "center",
-          backgroundAttachment: isMobileView ? "scroll" : "fixed",
+          backgroundAttachment: "fixed",
           position: "relative",
         }}
       >
@@ -1058,7 +818,7 @@ export default function CustomerCareDashboardPage() {
           style={{
             position: "fixed",
             top: 0,
-            left: isMobileView ? 0 : "320px",
+            left: 0,
             right: 0,
             bottom: 0,
             background: "rgba(0, 0, 0, 0.75)",
@@ -1147,7 +907,7 @@ export default function CustomerCareDashboardPage() {
                   marginBottom: "2.5rem",
                 }}
               >
-                {/* Active Offers Card */}
+                {/* Total Offers Card */}
                 <div
                   style={{
                     background:
@@ -1178,7 +938,7 @@ export default function CustomerCareDashboardPage() {
                           letterSpacing: "0.5px",
                         }}
                       >
-                        Active Offers
+                        Total Offers
                       </p>
                       <h3
                         style={{
@@ -1196,7 +956,7 @@ export default function CustomerCareDashboardPage() {
                   <p
                     style={{ margin: 0, color: "#e0bf63", fontSize: "0.85rem" }}
                   >
-                    active promotions running
+                    total offers available
                   </p>
                 </div>
 
@@ -1729,7 +1489,7 @@ export default function CustomerCareDashboardPage() {
                           letterSpacing: "0.5px",
                         }}
                       >
-                        Active Promotions
+                        Total Offers
                       </p>
                       <h3
                         style={{
@@ -1739,7 +1499,7 @@ export default function CustomerCareDashboardPage() {
                           fontWeight: 700,
                         }}
                       >
-                        {offers.filter((o) => o.status === "active").length}
+                        {totalOffers}
                       </h3>
                       <p
                         style={{
@@ -1748,7 +1508,7 @@ export default function CustomerCareDashboardPage() {
                           color: "#d0d0d0",
                         }}
                       >
-                        of {offers.length} total
+                        across all types
                       </p>
                     </div>
                     <div
@@ -1808,7 +1568,7 @@ export default function CustomerCareDashboardPage() {
                           fontWeight: 700,
                         }}
                       >
-                        {offers.reduce((sum, o) => sum + (o.sentCount || 0), 0)}
+                        {offers.reduce((sum, o) => sum + (o.recipientsCount || 0), 0)}
                       </h3>
                       <p
                         style={{
@@ -2438,6 +2198,12 @@ export default function CustomerCareDashboardPage() {
                               </strong>
                             </div>
                           )}
+                          <div>
+                            <span style={{ color: "#999" }}>✉ Sent To: </span>
+                            <strong style={{ color: offer.recipientsCount > 0 ? "#28a745" : "#999" }}>
+                              {offer.recipientsCount || 0} {offer.recipientsCount === 1 ? 'person' : 'people'}
+                            </strong>
+                          </div>
                         </div>
                       </div>
 
@@ -4519,6 +4285,122 @@ export default function CustomerCareDashboardPage() {
           )}
         </div>
       </main>
+
+      {/* Fixed Bottom Navigation */}
+      <nav
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: "#470012",
+          borderTop: "1px solid rgba(255, 255, 255, 0.1)",
+          display: "flex",
+          justifyContent: "space-around",
+          alignItems: "center",
+          zIndex: 210,
+          boxShadow: "0 -2px 12px rgba(0, 0, 0, 0.3)",
+          height: "70px",
+          paddingBottom: "max(env(safe-area-inset-bottom), 0px)",
+        }}
+      >
+        {[
+          {
+            id: "overview",
+            icon: FiBarChart2,
+            label: "Overview",
+          },
+          { id: "offers", icon: FiGift, label: "Offers" },
+          {
+            id: "messages",
+            icon: FiMessageCircle,
+            label: "Messages",
+          },
+          { id: "reviews", icon: FiStar, label: "Reviews" },
+          {
+            id: "appointments",
+            icon: FiCalendar,
+            label: "Slots",
+          },
+        ].map((item) => {
+          const isActive = activeTab === item.id;
+          const IconComponent = item.icon;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setActiveTab(item.id)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "0.3rem",
+                flex: 1,
+                height: "100%",
+                background: "transparent",
+                color: isActive ? "#e0bf63" : "rgba(255, 255, 255, 0.6)",
+                border: "none",
+                cursor: "pointer",
+                transition: "all 0.3s",
+                borderTop: isActive ? "3px solid #e0bf63" : "3px solid transparent",
+                fontSize: "0.65rem",
+                fontFamily: "Arial, sans-serif",
+                fontWeight: isActive ? 600 : 500,
+                padding: "0 0.5rem",
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = "rgba(224, 191, 99, 0.8)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)";
+                }
+              }}
+              title={item.label}
+            >
+              <IconComponent size={24} />
+              <span style={{ textAlign: "center", maxWidth: "50px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+            </button>
+          );
+        })}
+
+        {/* Logout Button */}
+        <button
+          onClick={() => authManager.logout()}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "0.3rem",
+            flex: 1,
+            height: "100%",
+            background: "transparent",
+            color: "rgba(255, 255, 255, 0.6)",
+            border: "none",
+            cursor: "pointer",
+            transition: "all 0.3s",
+            borderTop: "3px solid transparent",
+            fontSize: "0.65rem",
+            fontFamily: "Arial, sans-serif",
+            fontWeight: 500,
+            padding: "0 0.5rem",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = "rgba(255, 100, 100, 0.8)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = "rgba(255, 255, 255, 0.6)";
+          }}
+          title="Logout"
+        >
+          <FiLogOut size={24} />
+          <span style={{ textAlign: "center", maxWidth: "50px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>Logout</span>
+        </button>
+      </nav>
     </div>
   );
 }
