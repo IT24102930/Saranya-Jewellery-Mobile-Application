@@ -202,12 +202,13 @@ export default function CustomerCareDashboardPage() {
         const offersResp = await authManager.apiRequest(`/api/messages?type=promotion&t=${Date.now()}`);
         const offersData = await offersResp.json();
         if (offersResp.ok && Array.isArray(offersData)) {
-          offersData.slice(0, 3).forEach((offer) => {
+          offersData.slice(0, 5).forEach((offer) => {
             recentActivities.push({
               type: 'offer',
               icon: '★',
-              text: `New promotion: "${offer.title}"`,
-              time: new Date(offer.createdAt).toLocaleDateString()
+              text: `Offer created: "${offer.title}"`,
+              time: new Date(offer.createdAt || Date.now()),
+              timestamp: new Date(offer.createdAt || Date.now()).getTime()
             });
           });
         }
@@ -220,13 +221,14 @@ export default function CustomerCareDashboardPage() {
         const chatsResp = await authManager.apiRequest(`/api/chat/all?t=${Date.now()}`);
         const chatsData = await chatsResp.json();
         if (chatsResp.ok && Array.isArray(chatsData)) {
-          chatsData.slice(0, 3).forEach((chat) => {
+          chatsData.slice(0, 5).forEach((chat) => {
             if (chat.lastMessage) {
               recentActivities.push({
                 type: 'message',
                 icon: '💬',
                 text: `Message from ${chat.customerName}`,
-                time: new Date(chat.lastMessageAt).toLocaleDateString()
+                time: new Date(chat.lastMessageAt || Date.now()),
+                timestamp: new Date(chat.lastMessageAt || Date.now()).getTime()
               });
             }
           });
@@ -235,17 +237,56 @@ export default function CustomerCareDashboardPage() {
         console.warn('Failed to load chats for activity', e);
       }
       
+      // Add recent orders to activity feed
+      try {
+        const ordersResp = await authManager.apiRequest(`/api/order?t=${Date.now()}`);
+        const ordersData = await ordersResp.json();
+        if (ordersResp.ok && Array.isArray(ordersData)) {
+          ordersData.slice(0, 5).forEach((order) => {
+            recentActivities.push({
+              type: 'order',
+              icon: '🛍️',
+              text: `Order placed: ${order.customerName} - ₹${order.totalAmount}`,
+              time: new Date(order.createdAt || Date.now()),
+              timestamp: new Date(order.createdAt || Date.now()).getTime()
+            });
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to load orders for activity', e);
+      }
+      
+      // Add recent appointments to activity feed
+      try {
+        const appointmentsResp = await authManager.apiRequest(`/api/appointments?t=${Date.now()}`);
+        const appointmentsData = await appointmentsResp.json();
+        if (appointmentsResp.ok && Array.isArray(appointmentsData)) {
+          appointmentsData.slice(0, 5).forEach((appt) => {
+            recentActivities.push({
+              type: 'appointment',
+              icon: '📅',
+              text: `Appointment booked: ${appt.customerName}`,
+              time: new Date(appt.createdAt || Date.now()),
+              timestamp: new Date(appt.createdAt || Date.now()).getTime()
+            });
+          });
+        }
+      } catch (e) {
+        console.warn('Failed to load appointments for activity', e);
+      }
+      
       // Add recent reviews to activity feed
       try {
         const reviewsResp = await authManager.apiRequest(`/api/reviews?t=${Date.now()}`);
         const reviewsData = await reviewsResp.json();
         if (reviewsResp.ok && Array.isArray(reviewsData)) {
-          reviewsData.slice(0, 3).forEach((review) => {
+          reviewsData.slice(0, 5).forEach((review) => {
             recentActivities.push({
               type: 'review',
               icon: '⭐',
-              text: `New review: "${review.title || review.message?.substring(0, 30)}"`,
-              time: new Date(review.createdAt).toLocaleDateString()
+              text: `Review: "${review.title || review.message?.substring(0, 30)}"`,
+              time: new Date(review.createdAt || Date.now()),
+              timestamp: new Date(review.createdAt || Date.now()).getTime()
             });
           });
         }
@@ -253,9 +294,9 @@ export default function CustomerCareDashboardPage() {
         console.warn('Failed to load reviews for activity', e);
       }
       
-      // Sort activities by most recent and limit to 5
-      recentActivities.sort((a, b) => new Date(b.time) - new Date(a.time));
-      const sortedActivities = recentActivities.slice(0, 5);
+      // Sort activities by most recent and limit to 6
+      recentActivities.sort((a, b) => b.timestamp - a.timestamp);
+      const sortedActivities = recentActivities.slice(0, 6);
       
       // Load top customer questions/messages for top questions section
       try {
@@ -310,19 +351,15 @@ export default function CustomerCareDashboardPage() {
   // ============ OFFERS FUNCTIONS ============
   async function fetchTotalOffers() {
     try {
-      // Fetch total offers from dashboard stats
-      const statsResp = await authManager.apiRequest(`/api/loyalty/dashboard/stats?t=${Date.now()}`);
-      const statsData = await statsResp.json();
-      console.debug('Offers dashboard stats response:', statsResp.ok, 'statsData:', statsData);
-      if (statsResp.ok && statsData.totalOffers !== undefined) {
-        setTotalOffers(statsData.totalOffers);
-        console.debug('Total offers updated:', statsData.totalOffers);
+      // Count total offers from the loaded offers array
+      if (offers && Array.isArray(offers)) {
+        setTotalOffers(offers.length);
+        console.debug('Total offers updated:', offers.length);
       } else {
-        console.warn('Failed to get total offers from stats');
         setTotalOffers(0);
       }
     } catch (e) {
-      console.warn('Failed to load total offers for dashboard', e);
+      console.warn('Failed to count total offers', e);
       setTotalOffers(0);
     }
   }
@@ -907,59 +944,6 @@ export default function CustomerCareDashboardPage() {
                   marginBottom: "2.5rem",
                 }}
               >
-                {/* Total Offers Card */}
-                <div
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #6f0022 0%, #8b0033 100%)",
-                    borderRadius: "12px",
-                    padding: isMobileView ? "1.25rem" : "1.5rem",
-                    color: "#fff",
-                    boxShadow: "0 4px 15px rgba(111, 0, 34, 0.2)",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      marginBottom: "1rem",
-                      gap: isMobileView ? "0.5rem" : "1rem",
-                    }}
-                  >
-                    <div>
-                      <p
-                        style={{
-                          margin: 0,
-                          color: "#e0bf63",
-                          fontSize: isMobileView ? "0.75rem" : "0.85rem",
-                          fontWeight: 500,
-                          textTransform: "uppercase",
-                          letterSpacing: "0.5px",
-                        }}
-                      >
-                        Total Offers
-                      </p>
-                      <h3
-                        style={{
-                          margin: "0.8rem 0 0",
-                          fontSize: isMobileView ? "2rem" : "2.5rem",
-                          fontWeight: 700,
-                          color: "#e0bf63",
-                        }}
-                      >
-                        {dashboardStats.activeOffers}
-                      </h3>
-                    </div>
-                    <span style={{ fontSize: isMobileView ? "2rem" : "2.5rem", flexShrink: 0 }}>★</span>
-                  </div>
-                  <p
-                    style={{ margin: 0, color: "#e0bf63", fontSize: "0.85rem" }}
-                  >
-                    total offers available
-                  </p>
-                </div>
-
                 {/* Total Customer Messages Card */}
                 <div
                   style={{
@@ -1190,12 +1174,20 @@ export default function CustomerCareDashboardPage() {
                                   ? "#6f0022"
                                   : activity.type === "message"
                                     ? "#d4a850"
-                                    : "#e5e5e5",
+                                    : activity.type === "order"
+                                      ? "#1e88e5"
+                                      : activity.type === "appointment"
+                                        ? "#7b1fa2"
+                                        : activity.type === "review"
+                                          ? "#f57c00"
+                                          : "#e5e5e5",
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
                               color:
-                                activity.type === "offer" ? "#fff" : "#333",
+                                activity.type === "offer" || activity.type === "appointment" || activity.type === "order" 
+                                  ? "#fff" 
+                                  : "#333",
                               fontSize: isMobileView ? "1rem" : "1.2rem",
                               flexShrink: 0,
                             }}
@@ -1221,7 +1213,9 @@ export default function CustomerCareDashboardPage() {
                                 fontSize: "0.8rem",
                               }}
                             >
-                              {activity.time}
+                              {activity.time instanceof Date 
+                                ? activity.time.toLocaleDateString() 
+                                : activity.time}
                             </p>
                           </div>
                         </div>
