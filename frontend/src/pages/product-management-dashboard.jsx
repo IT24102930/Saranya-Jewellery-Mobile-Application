@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { FiBox, FiPlus, FiDatabase, FiLogOut, FiMenu, FiX } from 'react-icons/fi';
+import { FiBox, FiPlus, FiDatabase, FiLogOut, FiMenu, FiX, FiSearch } from 'react-icons/fi';
 import authManager from '../auth.js';
 
 const emptyForm = {
@@ -26,6 +26,9 @@ export default function ProductManagementDashboardPage() {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [featuredFilter, setFeaturedFilter] = useState('all');
+  const [karatFilter, setKaratFilter] = useState('all');
+  const [availabilityFilter, setAvailabilityFilter] = useState('all');
+  const [searchText, setSearchText] = useState('');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
 
@@ -40,13 +43,60 @@ export default function ProductManagementDashboardPage() {
   );
 
   const filteredProducts = useMemo(() => {
+    const searchLower = searchText.trim().toLowerCase();
     return products.filter((item) => {
       const categoryMatch = categoryFilter === 'all' ? true : item.category === categoryFilter;
       const statusMatch = statusFilter === 'all' ? true : item.productStatus === statusFilter;
       const featuredMatch = featuredFilter === 'all' ? true : (featuredFilter === 'featured' ? item.featured : !item.featured);
-      return categoryMatch && statusMatch && featuredMatch;
+      const karatMatch = karatFilter === 'all' ? true : (item.kType === karatFilter || item.karat === karatFilter);
+      const availabilityMatch = availabilityFilter === 'all' ? true : item.availabilityStatus === availabilityFilter;
+      const searchMatch = searchLower
+        ? [item.name, item.category, item.kType, item.karat, item.productStatus, item.availabilityStatus, item.description]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(searchLower)
+        : true;
+      return categoryMatch && statusMatch && featuredMatch && karatMatch && availabilityMatch && searchMatch;
     });
-  }, [products, categoryFilter, statusFilter, featuredFilter]);
+  }, [products, categoryFilter, statusFilter, featuredFilter, karatFilter, availabilityFilter, searchText]);
+
+  const chipFilters = [
+    { label: 'Ring', type: 'category', value: 'Ring' },
+    { label: 'Earrings', type: 'category', value: 'Earrings' },
+    { label: 'Bangles', type: 'category', value: 'Bangles' },
+    { label: '22K', type: 'karat', value: '22K' },
+    { label: '18K', type: 'karat', value: '18K' },
+    { label: '24K', type: 'karat', value: '24K' },
+    { label: 'Active', type: 'status', value: 'Active' },
+    { label: 'Draft', type: 'status', value: 'Draft' },
+    { label: 'In Stock', type: 'availability', value: 'In Stock' },
+    { label: 'Out of Stock', type: 'availability', value: 'Out of Stock' },
+    { label: 'Featured', type: 'featured', value: 'featured' }
+  ];
+
+  function toggleChipFilter(chip) {
+    if (chip.type === 'category') {
+      setCategoryFilter((current) => (current === chip.value ? 'all' : chip.value));
+      return;
+    }
+    if (chip.type === 'status') {
+      setStatusFilter((current) => (current === chip.value ? 'all' : chip.value));
+      return;
+    }
+    if (chip.type === 'karat') {
+      setKaratFilter((current) => (current === chip.value ? 'all' : chip.value));
+      return;
+    }
+    if (chip.type === 'availability') {
+      setAvailabilityFilter((current) => (current === chip.value ? 'all' : chip.value));
+      return;
+    }
+    if (chip.type === 'featured') {
+      setFeaturedFilter((current) => (current === 'featured' ? 'all' : 'featured'));
+      return;
+    }
+  }
 
   useEffect(() => {
     document.title = 'Product Management Dashboard - Saranya Jewellery';
@@ -467,22 +517,22 @@ export default function ProductManagementDashboardPage() {
       }}>
         {/* Stats Cards - Only on Product List */}
         {activeSection === 'productList' && (
-          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-            <div style={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }}>
-              <p style={{ margin: 0, color: '#666' }}>Total Products</p>
-              <h2 style={{ margin: '0.35rem 0 0', color: '#6f0022', fontSize: '2rem', fontWeight: 700 }}>{products.length}</h2>
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.8rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: '#6f0022', border: '1px solid #d4af37', borderRadius: '18px', padding: '1rem 1rem 0.85rem', color: '#fff', minHeight: '100px' }}>
+              <p style={{ margin: 0, color: '#f3e3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Total Products</p>
+              <h2 style={{ margin: '0.65rem 0 0', color: '#f5d35b', fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{products.length}</h2>
             </div>
-            <div style={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }}>
-              <p style={{ margin: 0, color: '#666' }}>Active Products</p>
-              <h2 style={{ margin: '0.35rem 0 0', color: '#6f0022', fontSize: '2rem', fontWeight: 700 }}>{activeProducts}</h2>
+            <div style={{ background: '#6f0022', border: '1px solid #d4af37', borderRadius: '18px', padding: '1rem 1rem 0.85rem', color: '#fff', minHeight: '100px' }}>
+              <p style={{ margin: 0, color: '#f3e3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Active Products</p>
+              <h2 style={{ margin: '0.65rem 0 0', color: '#f5d35b', fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{activeProducts}</h2>
             </div>
-            <div style={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }}>
-              <p style={{ margin: 0, color: '#666' }}>Available Stock</p>
-              <h2 style={{ margin: '0.35rem 0 0', color: '#6f0022', fontSize: '2rem', fontWeight: 700 }}>{stockOptions.length}</h2>
+            <div style={{ background: '#6f0022', border: '1px solid #d4af37', borderRadius: '18px', padding: '1rem 1rem 0.85rem', color: '#fff', minHeight: '100px' }}>
+              <p style={{ margin: 0, color: '#f3e3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Stock Available</p>
+              <h2 style={{ margin: '0.65rem 0 0', color: '#f5d35b', fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{stockOptions.length}</h2>
             </div>
-            <div style={{ background: '#fff', border: '1px solid #e9ecef', borderRadius: '12px', padding: '1.5rem', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }}>
-              <p style={{ margin: 0, color: '#666' }}>Featured Products</p>
-              <h2 style={{ margin: '0.35rem 0 0', color: '#6f0022', fontSize: '2rem', fontWeight: 700 }}>{featuredProducts}</h2>
+            <div style={{ background: '#6f0022', border: '1px solid #d4af37', borderRadius: '18px', padding: '1rem 1rem 0.85rem', color: '#fff', minHeight: '100px' }}>
+              <p style={{ margin: 0, color: '#f3e3b8', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }}>Featured Items</p>
+              <h2 style={{ margin: '0.65rem 0 0', color: '#f5d35b', fontSize: '2rem', fontWeight: 800, lineHeight: 1 }}>{featuredProducts}</h2>
             </div>
           </section>
         )}
@@ -491,125 +541,145 @@ export default function ProductManagementDashboardPage() {
         {activeSection === 'productList' && (
           <>
             <section style={{ background: '#fff', borderRadius: '12px', padding: '2rem', border: '1px solid #e9ecef', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)', marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-                <h3 style={{ margin: 0, color: '#6f0022', fontSize: '1.4rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>Product List</h3>
-                <div style={{ display: 'flex', gap: '0.8rem', flexWrap: 'wrap' }}>
-                  <select
-                    value={categoryFilter}
-                    onChange={(e) => setCategoryFilter(e.target.value)}
-                    style={{ padding: '0.55rem 0.7rem', border: '1px solid #ddd', borderRadius: 8, fontSize: '0.95rem', background: '#fff', cursor: 'pointer' }}
-                  >
-                    <option value="all">All Categories</option>
-                    <option value="Ring">Ring</option>
-                    <option value="Necklace">Necklace</option>
-                    <option value="Earrings">Earrings</option>
-                    <option value="Bangles">Bangles</option>
-                    <option value="Bracelet">Bracelet</option>
-                    <option value="Pendant">Pendant</option>
-                  </select>
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{ padding: '0.55rem 0.7rem', border: '1px solid #ddd', borderRadius: 8, fontSize: '0.95rem', background: '#fff', cursor: 'pointer' }}
-                  >
-                    <option value="all">All Status</option>
-                    <option value="Active">Active</option>
-                    <option value="Draft">Draft</option>
-                  </select>
-                  <select
-                    value={featuredFilter}
-                    onChange={(e) => setFeaturedFilter(e.target.value)}
-                    style={{ padding: '0.55rem 0.7rem', border: '1px solid #ddd', borderRadius: 8, fontSize: '0.95rem', background: '#fff', cursor: 'pointer' }}
-                  >
-                    <option value="all">All Products</option>
-                    <option value="featured">Featured Only</option>
-                    <option value="regular">Regular Only</option>
-                  </select>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, color: '#6f0022', fontSize: '1.4rem', fontFamily: 'Cormorant Garamond, serif', fontWeight: 600 }}>Product List</h3>
+                  <p style={{ margin: '0.5rem 0 0', color: '#666', fontSize: '0.95rem' }}>Search, filter and manage products on a mobile-friendly list.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveSection('createProduct')}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#6f0022', color: '#fff', border: 'none', padding: '0.85rem 1.2rem', borderRadius: 12, fontSize: '0.95rem', fontWeight: 700, cursor: 'pointer' }}
+                >
+                  <FiPlus size={18} />
+                  Add Product
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.95rem 1rem', background: '#fff', border: '1px solid #ddd', borderRadius: 16, boxShadow: '0 4px 14px rgba(0, 0, 0, 0.08)' }}>
+                  <FiSearch size={18} color="#6f0022" />
+                  <input
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    placeholder="Search products, category, karat..."
+                    style={{ flex: 1, border: 'none', outline: 'none', fontSize: '1rem', color: '#2d3748' }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  {chipFilters.map((chip) => {
+                    const isActive =
+                      (chip.type === 'category' && categoryFilter === chip.value) ||
+                      (chip.type === 'status' && statusFilter === chip.value) ||
+                      (chip.type === 'karat' && karatFilter === chip.value) ||
+                      (chip.type === 'availability' && availabilityFilter === chip.value) ||
+                      (chip.type === 'featured' && featuredFilter === 'featured');
+
+                    return (
+                      <button
+                        key={`${chip.type}-${chip.value}`}
+                        type="button"
+                        onClick={() => toggleChipFilter(chip)}
+                        style={{
+                          padding: '0.55rem 0.9rem',
+                          borderRadius: 999,
+                          border: isActive ? '1px solid #6f0022' : '1px solid #ddd',
+                          background: isActive ? '#6f0022' : '#fff',
+                          color: isActive ? '#fff' : '#4a5568',
+                          fontSize: '0.9rem',
+                          cursor: 'pointer',
+                          boxShadow: isActive ? '0 6px 18px rgba(111, 0, 34, 0.15)' : 'none'
+                        }}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-              {error && <p style={{ color: '#b42318', marginBottom: '1rem' }}>{error}</p>}
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid #e9ecef', background: '#f8f9fa' }}>
-                      <th style={{ textAlign: 'left', padding: '0.85rem', color: '#333' }}>Product</th>
-                      <th style={{ textAlign: 'left', padding: '0.85rem', color: '#333' }}>Category</th>
-                      <th style={{ textAlign: 'left', padding: '0.85rem', color: '#333' }}>Status</th>
-                      <th style={{ textAlign: 'right', padding: '0.85rem', color: '#333' }}>Price</th>
-                      <th style={{ textAlign: 'right', padding: '0.85rem', color: '#333' }}>Stock</th>
-                      <th style={{ textAlign: 'center', padding: '0.85rem', color: '#333' }}>Featured</th>
-                      <th style={{ textAlign: 'center', padding: '0.85rem', color: '#333' }}>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredProducts.map((product) => (
-                      <tr key={product._id} style={{ borderBottom: '1px solid #e9ecef' }}>
-                        <td style={{ padding: '0.85rem' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                            <img
-                              src={product.image || '/assets/placeholder-product.jpg'}
-                              alt={product.name}
-                              style={{ width: 44, height: 44, objectFit: 'cover', borderRadius: 8, border: '1px solid #eee' }}
-                            />
-                            <div>
-                              <p style={{ margin: 0, fontWeight: 600, color: '#1f2937' }}>{product.name}</p>
-                              <p style={{ margin: 0, color: '#6b7280', fontSize: '0.85rem' }}>{(product.description || '').slice(0, 50)}</p>
-                            </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '0.85rem', color: '#555' }}>{product.category || '-'}</td>
-                        <td style={{ padding: '0.85rem' }}>
-                          <span style={{
-                            display: 'inline-block',
-                            padding: '0.25rem 0.6rem',
-                            borderRadius: 999,
-                            background: product.productStatus === 'Active' ? '#d1fae5' : '#fef3c7',
-                            color: product.productStatus === 'Active' ? '#065f46' : '#92400e',
-                            fontSize: '0.8rem',
-                            fontWeight: 600
-                          }}>
-                            {product.productStatus || 'Draft'}
-                          </span>
-                        </td>
-                        <td style={{ padding: '0.85rem', textAlign: 'right', color: '#555' }}>LKR {(Number(product.price || 0) + (Number(product.price || 0) * Number(product.taxPercentage || 0) / 100)).toLocaleString(undefined, { maximumFractionDigits: 2 })}</td>
-                        <td style={{ padding: '0.85rem', textAlign: 'right', color: '#555' }}>{product.stockQuantity || 0}</td>
-                        <td style={{ padding: '0.85rem', textAlign: 'center', color: '#555' }}>{product.featured ? 'Yes' : 'No'}</td>
-                        <td style={{ padding: '0.85rem', textAlign: 'center' }}>
-                          <div style={{ display: 'inline-flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                            <button
-                              type="button"
-                              onClick={() => startEditProduct(product)}
-                              style={{ background: '#fff', border: '1px solid #d0c3a4', color: '#6f0022', borderRadius: 6, padding: '0.35rem 0.55rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const newStatus = product.productStatus === 'Active' ? 'Draft' : 'Active';
-                                updateProductState(product, {
-                                  productStatus: newStatus
-                                });
-                              }}
-                              style={{ background: '#fff', border: '1px solid #c8d6f9', color: '#1f4b9a', borderRadius: 6, padding: '0.35rem 0.55rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                            >
-                              {product.productStatus === 'Active' ? 'Hide' : 'Show'}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeProduct(product._id)}
-                              style={{ background: '#fff', border: '1px solid #f1c0c0', color: '#b42318', borderRadius: 6, padding: '0.35rem 0.55rem', fontSize: '0.8rem', cursor: 'pointer' }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+
+              {error && <p style={{ color: '#b42318', marginTop: '1rem' }}>{error}</p>}
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1rem', marginTop: '1.5rem' }}>
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product._id}
+                    style={{
+                      background: '#fff',
+                      borderRadius: '20px',
+                      padding: '1.25rem',
+                      boxShadow: '0 16px 40px rgba(0, 0, 0, 0.08)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '1rem'
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                      <img
+                        src={product.image || '/assets/placeholder-product.jpg'}
+                        alt={product.name}
+                        style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 16, border: '1px solid #eee', flexShrink: 0 }}
+                      />
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <h4 style={{ margin: 0, color: '#1f2937', fontSize: '1.1rem', fontWeight: 700 }}>{product.name}</h4>
+                        <p style={{ margin: '0.35rem 0 0', color: '#6b7280', fontSize: '0.9rem' }}>
+                          {product.category || 'Unknown'} / {product.productStatus || 'Draft'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <span style={{ padding: '0.5rem 0.75rem', borderRadius: 999, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', fontSize: '0.85rem' }}>
+                        {product.kType || product.karat || 'No karat'}
+                      </span>
+                      <span style={{ padding: '0.5rem 0.75rem', borderRadius: 999, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', fontSize: '0.85rem' }}>
+                        {product.weight ? `${product.weight}g` : 'Weight unknown'}
+                      </span>
+                      <span style={{ padding: '0.5rem 0.75rem', borderRadius: 999, border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', fontSize: '0.85rem' }}>
+                        {product.availabilityStatus || 'Status unknown'}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                      <div>
+                        <p style={{ margin: 0, color: '#6f0022', fontSize: '0.9rem' }}>Price</p>
+                        <p style={{ margin: 0, fontSize: '1.5rem', fontWeight: 800, color: '#111827' }}>
+                          LKR {Number(product.price || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </p>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={() => startEditProduct(product)}
+                          style={{ padding: '0.65rem 0.95rem', borderRadius: 12, border: '1px solid #d0c3a4', background: '#fff', color: '#6f0022', fontSize: '0.85rem', cursor: 'pointer' }}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newStatus = product.productStatus === 'Active' ? 'Draft' : 'Active';
+                            updateProductState(product, { productStatus: newStatus });
+                          }}
+                          style={{ padding: '0.65rem 0.95rem', borderRadius: 12, border: '1px solid #c8d6f9', background: '#fff', color: '#1f4b9a', fontSize: '0.85rem', cursor: 'pointer' }}
+                        >
+                          {product.productStatus === 'Active' ? 'Hide' : 'Show'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeProduct(product._id)}
+                          style={{ padding: '0.65rem 0.95rem', borderRadius: 12, border: '1px solid #f1c0c0', background: '#fff', color: '#b42318', fontSize: '0.85rem', cursor: 'pointer' }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              {filteredProducts.length === 0 && <p style={{ margin: '1.5rem 0 0', color: '#999', textAlign: 'center' }}>No products found.</p>}
+
+              {filteredProducts.length === 0 && <p style={{ margin: '1.5rem 0 0', color: '#999', textAlign: 'center' }}>No products match your search or filters.</p>}
             </section>
           </>
         )}
