@@ -102,7 +102,9 @@ app.use(session({
     secure: isProduction ? true : false,
     httpOnly: true,
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    sameSite: 'none'
+    // Use 'none' in production to allow cross-site cookies over HTTPS.
+    // In development, use 'lax' so browsers accept cookies without Secure flag.
+    sameSite: isProduction ? 'none' : 'lax'
   }
 }));
 
