@@ -787,7 +787,7 @@ export default function OrderManagementDashboardPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [activeTab, setActiveTab]           = useState('dashboard');
   const [searchTerm, setSearchTerm]         = useState('');
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  // isMobileNavOpen removed — mobile side panel has been removed
   const [isLoading, setIsLoading]           = useState(true);
 
   // true when viewport < 1024 px
@@ -802,23 +802,15 @@ export default function OrderManagementDashboardPage() {
     function handleResize() {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (!mobile) setIsMobileNavOpen(false);
     }
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Close sidebar on tab change (mobile)
-  useEffect(() => {
-    if (isMobile) setIsMobileNavOpen(false);
-  }, [activeTab, isMobile]);
+  // (mobile sidebar close-on-tab-change effect removed — sidebar no longer present on mobile)
 
-  // Lock body scroll when mobile sidebar is open
-  useEffect(() => {
-    document.body.style.overflow = isMobile && isMobileNavOpen ? 'hidden' : '';
-    return () => { document.body.style.overflow = ''; };
-  }, [isMobileNavOpen, isMobile]);
+  // (body scroll-lock for mobile sidebar removed — sidebar no longer present on mobile)
 
   async function loadProducts() {
     try {
@@ -1085,19 +1077,12 @@ export default function OrderManagementDashboardPage() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#FDF9F2', fontFamily: "'Inter', sans-serif", position: 'relative' }}>
 
-      {/* Sidebar — fixed on desktop, slide-in drawer on mobile */}
-      {isMobile && isMobileNavOpen && (
-        <div
-          onClick={() => setIsMobileNavOpen(false)}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(23,12,18,0.45)', zIndex: 140 }}
-          aria-hidden="true"
-        />
-      )}
+      {/* Sidebar — fixed on desktop only */}
 
-      <aside
+      {!isMobile && <aside
         aria-label="Main navigation"
         style={{
-          width: isMobile ? '85vw' : '280px',
+          width: '280px',
           maxWidth: '320px',
           background: '#6f0022',
           color: '#fff',
@@ -1107,9 +1092,9 @@ export default function OrderManagementDashboardPage() {
           height: '100vh',
           left: 0, top: 0,
           zIndex: 200,
-          transform: isMobile ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
+          transform: 'translateX(0)',
           transition: 'transform 0.25s cubic-bezier(0.4,0,0.2,1)',
-          boxShadow: isMobile ? '8px 0 32px rgba(0,0,0,0.2)' : 'none',
+          boxShadow: 'none',
         }}
       >
         <div style={{ padding: '1.5rem 1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -1125,7 +1110,7 @@ export default function OrderManagementDashboardPage() {
             return (
               <button
                 key={item.key}
-                onClick={() => { setActiveTab(item.key); setIsMobileNavOpen(false); }}
+                onClick={() => { setActiveTab(item.key); }}
                 aria-current={active ? 'page' : undefined}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '0.85rem',
@@ -1172,7 +1157,7 @@ export default function OrderManagementDashboardPage() {
             <FiLogOut size={18} />
           </button>
         </div>
-      </aside>
+      </aside>}
 
       <main style={{
         flex: 1,
@@ -1195,24 +1180,6 @@ export default function OrderManagementDashboardPage() {
             borderBottom: '1px solid #F0E2D2',
             display: 'flex', alignItems: 'center', gap: '0.75rem',
           }}>
-            <button
-              type="button"
-              onClick={() => setIsMobileNavOpen(prev => !prev)}
-              aria-label={isMobileNavOpen ? 'Close navigation' : 'Open navigation'}
-              aria-expanded={isMobileNavOpen}
-              aria-controls="sidebar"
-              style={{
-                flexShrink: 0,
-                border: 'none', background: '#6f0022', color: '#fff',
-                width: '44px', height: '44px', borderRadius: '12px',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                cursor: 'pointer', fontSize: '1.3rem',
-                boxShadow: '0 4px 12px rgba(111,0,34,0.3)',
-              }}
-            >
-              {isMobileNavOpen ? <FiX /> : <FiMenu />}
-            </button>
-
             <div style={{
               flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem',
               background: 'white', padding: '0.6rem 0.9rem',
@@ -1254,6 +1221,24 @@ export default function OrderManagementDashboardPage() {
               }}
             >
               <FiRefreshCw size={18} />
+            </button>
+
+            {/* Logout button — top-right of mobile header */}
+            <button
+              type="button"
+              onClick={() => authManager.logout()}
+              aria-label="Log out"
+              title="Log out"
+              style={{
+                flexShrink: 0,
+                border: 'none', background: '#6f0022', color: '#fff',
+                width: '44px', height: '44px', borderRadius: '12px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(111,0,34,0.3)',
+              }}
+            >
+              <FiLogOut size={20} />
             </button>
           </div>
         )}
