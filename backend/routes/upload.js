@@ -113,7 +113,8 @@ router.post('/receipt', isCustomerAuthenticated, upload.single('receipt'), async
 
     ensureCloudinaryConfigured();
     if (!cloudinaryConfigured) {
-      return res.status(500).json({ message: 'Cloudinary is not configured on server' });
+      console.error('Cloudinary not configured - missing credentials');
+      return res.status(500).json({ message: 'Upload service not configured. Please try again later.' });
     }
 
     const uploaded = await uploadToCloudinary(req.file.buffer, 'saranya/receipts');
@@ -125,7 +126,8 @@ router.post('/receipt', isCustomerAuthenticated, upload.single('receipt'), async
     });
   } catch (error) {
     console.error('Receipt upload error:', error);
-    res.status(500).json({ message: 'Error uploading receipt', error: error.message });
+    const errorMessage = error?.message || 'Error uploading receipt';
+    res.status(500).json({ message: errorMessage });
   }
 });
 

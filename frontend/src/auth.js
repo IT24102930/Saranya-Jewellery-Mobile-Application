@@ -44,10 +44,16 @@ class AuthManager {
     // Build full URL if relative path provided
     const fullUrl = url.startsWith('http') ? url : `${apiBaseUrl}${url}`;
 
+    // Only set Content-Type if body is not FormData (multipart requests)
+    const headers = {};
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
+
     const defaultOptions = {
       credentials: 'include', // Include cookies from cross-origin requests
       headers: {
-        'Content-Type': 'application/json',
+        ...headers,
         ...options.headers
       }
     };
@@ -62,8 +68,15 @@ class AuthManager {
       }
     };
 
-    const response = await fetch(fullUrl, mergedOptions);
-    return response;
+    try {
+      console.log(`API Request: ${mergedOptions.method || 'GET'} ${fullUrl}`);
+      const response = await fetch(fullUrl, mergedOptions);
+      return response;
+    } catch (fetchError) {
+      console.error(`API Request failed: ${fullUrl}`, fetchError);
+      // Re-throw with more context
+      throw new Error(`Network error: ${fetchError.message}`);
+    }
   }
 
   /**

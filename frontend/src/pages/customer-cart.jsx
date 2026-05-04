@@ -165,12 +165,12 @@ export default function CustomerCartPage() {
     try {
       let receiptPath = null;
       if (receiptFile) {
+        console.log('Uploading receipt...');
         const formData = new FormData();
         formData.append('receipt', receiptFile);
 
-        const uploadResponse = await fetch('/api/upload/receipt', {
+        const uploadResponse = await authManager.apiRequest('/api/upload/receipt', {
           method: 'POST',
-          credentials: 'same-origin',
           body: formData
         });
 
@@ -187,7 +187,10 @@ export default function CustomerCartPage() {
 
         const uploadData = await uploadResponse.json();
         receiptPath = uploadData.imagePath;
+        console.log('Receipt uploaded:', receiptPath);
       }
+
+      console.log('Creating order with data:', { itemCount: cart.length, total, phoneNumber });
 
       const orderData = {
         items: cart.map((item) => ({
@@ -229,7 +232,8 @@ export default function CustomerCartPage() {
       window.location.href = '/customer-orders';
     } catch (error) {
       console.error('Error placing order:', error);
-      alert(`Failed to place order: ${error.message}`);
+      const errorMsg = error?.message || 'Unknown error occurred';
+      alert(`Failed to place order: ${errorMsg}`);
       setIsSubmitting(false);
     }
   }

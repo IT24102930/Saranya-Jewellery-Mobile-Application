@@ -83,39 +83,53 @@ const isStaffAuthenticated = (req, res, next) => {
 // POST /api/orders - Create new order
 router.post('/', isCustomerAuthenticated, async (req, res) => {
   try {
+    console.log('=== Order Creation Started ===');
+    console.log('Session customerId:', req.session.customerId);
     const { items, phoneNumber, paymentReceipt, orderNotes, subtotal, tax, total, couponCode, couponDiscount } = req.body;
+
+    console.log('Request body:', { itemsCount: items?.length, phoneNumber, hasReceipt: !!paymentReceipt, total });
 
     // Validate required fields
     if (!items || items.length === 0) {
+      console.log('Validation failed: No items');
       return res.status(400).json({ message: 'Order must have at least one item' });
     }
     if (!phoneNumber) {
+      console.log('Validation failed: No phone number');
       return res.status(400).json({ message: 'Please provide your phone number' });
     }
 
     // Get customer details
     const customer = await Customer.findById(req.session.customerId);
     if (!customer) {
+      console.log('Validation failed: Customer not found');
       return res.status(404).json({ message: 'Customer not found' });
     }
+
+    console.log('Customer found:', customer._id, customer.email);
 
     // Validate and decrease stock quantity for each ordered item
     const stockUpdatedProducts = [];
     for (const item of items) {
       if (!item.productId) {
+        console.log('Validation failed: Missing product ID');
         return res.status(400).json({ message: 'Invalid item in order - missing product ID' });
       }
       const product = await Product.findById(item.productId);
       if (!product) {
+        console.log('Validation failed: Product not found:', item.productId);
         return res.status(400).json({ message: `Product "${item.name}" is no longer available` });
       }
       if (product.stockQuantity < item.quantity) {
+        console.log('Validation failed: Insufficient stock for', product.name);
         return res.status(400).json({ message: `Insufficient stock for ${product.name}. Available: ${product.stockQuantity}` });
       }
       product.stockQuantity -= item.quantity;
       await product.save();
       stockUpdatedProducts.push({ product, quantity: item.quantity });
     }
+
+    console.log('Stock validated and updated for', items.length, 'items');
 
     // Create new order
     const newOrder = new Order({
@@ -137,13 +151,19 @@ router.post('/', isCustomerAuthenticated, async (req, res) => {
     });
 
     await newOrder.save();
+    console.log('Order created:', newOrder._id, 'Order #', newOrder.orderNumber);
 
     // Award loyalty points (1 point per 100 rupees spent)
     const pointsEarned = Math.floor(total / 100);
     if (pointsEarned > 0) {
       customer.loyaltyPoints += pointsEarned;
       await customer.save();
+      console.log('Loyalty points awarded:', pointsEarned);
     }
+
+    // Ensure session is persisted before sending response
+    await new Promise((resolve) => req.session.save(resolve));
+    console.log('Session saved');
 
     // Send order confirmation email
     try {
@@ -179,7 +199,9 @@ router.post('/', isCustomerAuthenticated, async (req, res) => {
       orderId: newOrder._id,
       pointsEarned
     });
+    console.log('=== Order Creation Completed Successfully ===');
   } catch (error) {
+    console.error('=== Order Creation Failed ===');
     console.error('Create order error:', error);
     // Return detailed error for debugging
     const errorMessage = error.name === 'ValidationError'
@@ -187,6 +209,7 @@ router.post('/', isCustomerAuthenticated, async (req, res) => {
       : error.code === 11000
         ? 'Order number conflict, please try again'
         : error.message || 'Server error while creating order';
+    console.error('Returning error response:', errorMessage);
     res.status(500).json({ message: errorMessage });
   }
 });
