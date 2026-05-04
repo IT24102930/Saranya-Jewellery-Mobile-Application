@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import authManager from '../auth.js';
-import { FiBox, FiTrendingUp, FiTruck, FiLogOut, FiAlertTriangle, FiMenu, FiX, FiHome } from 'react-icons/fi';
+import { FiBox, FiTrendingUp, FiTruck, FiLogOut, FiAlertTriangle } from 'react-icons/fi';
 
 const emptyStock = {
   name: '',
@@ -21,7 +21,7 @@ const emptySupplier = {
 
 export default function InventoryDashboardPage() {
   const [staffUser, setStaffUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'stock', 'rates', 'suppliers', 'alerts'
+  const [activeTab, setActiveTab] = useState('stock'); // 'stock', 'rates', 'suppliers', 'alerts'
   
   // Stock state
   const [stockRows, setStockRows] = useState([]);
@@ -366,6 +366,21 @@ export default function InventoryDashboardPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc', position: 'relative' }}>
+      <style>
+        {`
+          @media (min-width: 768px) {
+            .modal-content {
+              width: 70% !important;
+            }
+          }
+          @media (min-width: 1024px) {
+            .modal-content {
+              width: auto !important;
+              maxWidth: 500px !important;
+            }
+          }
+        `}
+      </style>
 
       {/* Main Content */}
       <main style={{
@@ -373,22 +388,6 @@ export default function InventoryDashboardPage() {
         overflow: 'auto',
         padding: '2rem 1rem 5rem'
       }}>
-        {/* Stats */}
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
-          <div style={{ background: '#fafbfc', border: '1px solid #eee', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Stock Entries</p>
-            <h2 style={{ margin: '0.5rem 0 0', color: '#6f0022', fontSize: '1.8rem' }}>{stockRows.length}</h2>
-          </div>
-          <div style={{ background: '#fafbfc', border: '1px solid #eee', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Total Units</p>
-            <h2 style={{ margin: '0.5rem 0 0', color: '#6f0022', fontSize: '1.8rem' }}>{totalUnits}</h2>
-          </div>
-          <div style={{ background: '#fafbfc', border: '1px solid #eee', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
-            <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Suppliers</p>
-            <h2 style={{ margin: '0.5rem 0 0', color: '#6f0022', fontSize: '1.8rem' }}>{suppliers.length}</h2>
-          </div>
-        </section>
-
         {error && (
           <div style={{
             background: '#fee',
@@ -608,19 +607,25 @@ export default function InventoryDashboardPage() {
         </div>
       )}
 
-      {/* DASHBOARD TAB */}
-      {activeTab === 'dashboard' && (
-        <div>
-          <section style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '2rem', textAlign: 'center' }}>
-            <h2 style={{ margin: '0 0 1rem', color: '#6f0022', fontSize: '1.5rem', fontFamily: 'Cormorant Garamond, serif' }}>Welcome to Inventory Dashboard</h2>
-            <p style={{ margin: 0, color: '#666', fontSize: '1rem' }}>Manage your stock, rates, suppliers, and monitor alerts efficiently.</p>
-          </section>
-        </div>
-      )}
-
       {/* STOCK TAB */}
       {activeTab === 'stock' && (
         <div>
+          {/* Stats */}
+          <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: '#fafbfc', border: '1px solid #eee', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Stock Entries</p>
+              <h2 style={{ margin: '0.5rem 0 0', color: '#6f0022', fontSize: '1.8rem' }}>{stockRows.length}</h2>
+            </div>
+            <div style={{ background: '#fafbfc', border: '1px solid #eee', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Total Units</p>
+              <h2 style={{ margin: '0.5rem 0 0', color: '#6f0022', fontSize: '1.8rem' }}>{totalUnits}</h2>
+            </div>
+            <div style={{ background: '#fafbfc', border: '1px solid #eee', borderRadius: 12, padding: '1rem', textAlign: 'center' }}>
+              <p style={{ margin: 0, color: '#666', fontSize: '0.9rem' }}>Suppliers</p>
+              <h2 style={{ margin: '0.5rem 0 0', color: '#6f0022', fontSize: '1.8rem' }}>{suppliers.length}</h2>
+            </div>
+          </section>
+
           {/* Gold Rate Display */}
           <section style={{ background: 'linear-gradient(135deg, #e0bf63 0%, #d4af37 100%)', border: '2px solid #b8860b', borderRadius: 12, padding: '1.5rem', marginBottom: '1.5rem' }}>
             <div>
@@ -987,19 +992,44 @@ export default function InventoryDashboardPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: '1rem'
         }} onClick={() => cancelEditStock()}>
           <div style={{
             background: '#fff',
-            borderRadius: 12,
-            padding: '2.5rem',
-            maxWidth: '800px',
-            width: '95%',
+            borderRadius: '16px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
-          }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, color: '#6f0022', fontSize: '1.2rem', marginBottom: '1.5rem' }}>
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            position: 'relative'
+          }} className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => cancelEditStock()}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666',
+                padding: '4px',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Close modal"
+            >
+              ×
+            </button>
+            <h3 style={{ marginTop: 0, color: '#6f0022', fontSize: '1.25rem', marginBottom: '1.5rem', paddingRight: '40px' }}>
               {editingStock ? 'Edit Stock Item' : 'Add Stock Item'}
             </h3>
             {error && (
@@ -1015,8 +1045,8 @@ export default function InventoryDashboardPage() {
                 {error}
               </div>
             )}
-            <form onSubmit={saveStock} style={{ display: 'grid', gap: '0.8rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+            <form onSubmit={saveStock} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <input
                   required
                   type="text"
@@ -1024,22 +1054,26 @@ export default function InventoryDashboardPage() {
                   value={stockForm.name}
                   onChange={(e) => setStockForm({ ...stockForm, name: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 <select
                   value={stockForm.category}
                   onChange={(e) => setStockForm({ ...stockForm, category: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <option>Ring</option>
@@ -1054,16 +1088,18 @@ export default function InventoryDashboardPage() {
                   <option>Other</option>
                 </select>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.8rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <select
                   value={stockForm.karat}
                   onChange={(e) => setStockForm({ ...stockForm, karat: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 >
                   <option>18K</option>
@@ -1079,11 +1115,13 @@ export default function InventoryDashboardPage() {
                   value={stockForm.weight}
                   onChange={(e) => setStockForm({ ...stockForm, weight: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 <input
@@ -1094,11 +1132,13 @@ export default function InventoryDashboardPage() {
                   value={stockForm.quantity}
                   onChange={(e) => setStockForm({ ...stockForm, quantity: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -1106,11 +1146,13 @@ export default function InventoryDashboardPage() {
                 value={stockForm.supplier}
                 onChange={(e) => setStockForm({ ...stockForm, supplier: e.target.value })}
                 style={{
-                  padding: '0.6rem',
+                  padding: '12px 16px',
                   border: '1px solid #ddd',
-                  borderRadius: 8,
-                  fontSize: '0.94rem',
-                  fontFamily: 'Poppins, sans-serif'
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontFamily: 'Poppins, sans-serif',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               >
                 <option value="">Select Supplier (optional)</option>
@@ -1120,18 +1162,18 @@ export default function InventoryDashboardPage() {
                   </option>
                 ))}
               </select>
-              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
                 <button
                   type="submit"
                   disabled={isSavingStock}
                   style={{
-                    flex: 1,
-                    padding: '0.7rem 1.2rem',
+                    width: '100%',
+                    padding: '14px 16px',
                     background: '#6f0022',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: 8,
-                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    fontSize: '16px',
                     fontWeight: '600',
                     cursor: isSavingStock ? 'not-allowed' : 'pointer',
                     fontFamily: 'Poppins, sans-serif',
@@ -1145,12 +1187,13 @@ export default function InventoryDashboardPage() {
                   type="button"
                   onClick={cancelEditStock}
                   style={{
-                    padding: '0.7rem 1.2rem',
+                    width: '100%',
+                    padding: '14px 16px',
                     background: '#fff',
                     color: '#666',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    fontSize: '16px',
                     cursor: 'pointer',
                     fontFamily: 'Poppins, sans-serif'
                   }}
@@ -1175,7 +1218,8 @@ export default function InventoryDashboardPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: '1rem'
         }} onClick={() => {
           setEditingSupplier(null);
           setSupplierForm(emptySupplier);
@@ -1184,15 +1228,44 @@ export default function InventoryDashboardPage() {
         }}>
           <div style={{
             background: '#fff',
-            borderRadius: 12,
-            padding: '2.5rem',
-            maxWidth: '800px',
-            width: '95%',
+            borderRadius: '16px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
             maxHeight: '90vh',
             overflowY: 'auto',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
-          }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, color: '#6f0022', fontSize: '1.2rem', marginBottom: '1.5rem' }}>
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            position: 'relative'
+          }} className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => {
+                setEditingSupplier(null);
+                setSupplierForm(emptySupplier);
+                setShowSupplierModal(false);
+                setError('');
+              }}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666',
+                padding: '4px',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Close modal"
+            >
+              ×
+            </button>
+            <h3 style={{ marginTop: 0, color: '#6f0022', fontSize: '1.25rem', marginBottom: '1.5rem', paddingRight: '40px' }}>
               {editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
             </h3>
             {error && (
@@ -1208,8 +1281,8 @@ export default function InventoryDashboardPage() {
                 {error}
               </div>
             )}
-            <form onSubmit={saveSupplier} style={{ display: 'grid', gap: '0.8rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+            <form onSubmit={saveSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <input
                   required
                   type="text"
@@ -1217,11 +1290,13 @@ export default function InventoryDashboardPage() {
                   value={supplierForm.name}
                   onChange={(e) => setSupplierForm({ ...supplierForm, name: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 <input
@@ -1234,26 +1309,30 @@ export default function InventoryDashboardPage() {
                   pattern="[0-9]{10}"
                   title="Contact number must be exactly 10 digits"
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.8rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <input
                   type="email"
                   placeholder="Email (optional)"
                   value={supplierForm.email}
                   onChange={(e) => setSupplierForm({ ...supplierForm, email: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
                 <input
@@ -1262,11 +1341,13 @@ export default function InventoryDashboardPage() {
                   value={supplierForm.location}
                   onChange={(e) => setSupplierForm({ ...supplierForm, location: e.target.value })}
                   style={{
-                    padding: '0.6rem',
+                    padding: '12px 16px',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.94rem',
-                    fontFamily: 'Poppins, sans-serif'
+                    borderRadius: '8px',
+                    fontSize: '16px',
+                    fontFamily: 'Poppins, sans-serif',
+                    width: '100%',
+                    boxSizing: 'border-box'
                   }}
                 />
               </div>
@@ -1276,25 +1357,27 @@ export default function InventoryDashboardPage() {
                 value={supplierForm.itemsSupplied}
                 onChange={(e) => setSupplierForm({ ...supplierForm, itemsSupplied: e.target.value })}
                 style={{
-                  padding: '0.6rem',
+                  padding: '12px 16px',
                   border: '1px solid #ddd',
-                  borderRadius: 8,
-                  fontSize: '0.94rem',
-                  fontFamily: 'Poppins, sans-serif'
+                  borderRadius: '8px',
+                  fontSize: '16px',
+                  fontFamily: 'Poppins, sans-serif',
+                  width: '100%',
+                  boxSizing: 'border-box'
                 }}
               />
-              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
                 <button
                   type="submit"
                   disabled={isSavingSupplier}
                   style={{
-                    flex: 1,
-                    padding: '0.7rem 1.2rem',
+                    width: '100%',
+                    padding: '14px 16px',
                     background: '#6f0022',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: 8,
-                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    fontSize: '16px',
                     fontWeight: '600',
                     cursor: isSavingSupplier ? 'not-allowed' : 'pointer',
                     fontFamily: 'Poppins, sans-serif',
@@ -1313,12 +1396,13 @@ export default function InventoryDashboardPage() {
                     setError('');
                   }}
                   style={{
-                    padding: '0.7rem 1.2rem',
+                    width: '100%',
+                    padding: '14px 16px',
                     background: '#fff',
                     color: '#666',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    fontSize: '16px',
                     cursor: 'pointer',
                     fontFamily: 'Poppins, sans-serif'
                   }}
@@ -1343,17 +1427,44 @@ export default function InventoryDashboardPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          zIndex: 1000
+          zIndex: 1000,
+          padding: '1rem'
         }} onClick={() => setShowRatesModal(false)}>
           <div style={{
             background: '#fff',
-            borderRadius: 12,
-            padding: '2.5rem',
-            maxWidth: '800px',
-            width: '95%',
-            boxShadow: '0 10px 40px rgba(0, 0, 0, 0.2)'
-          }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0, color: '#6f0022', fontSize: '1.2rem', marginBottom: '1.5rem' }}>
+            borderRadius: '16px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 60px rgba(0, 0, 0, 0.15)',
+            position: 'relative'
+          }} className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowRatesModal(false)}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '16px',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#666',
+                padding: '4px',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              aria-label="Close modal"
+            >
+              ×
+            </button>
+            <h3 style={{ marginTop: 0, color: '#6f0022', fontSize: '1.25rem', marginBottom: '1.5rem', paddingRight: '40px' }}>
               Update Gold Rates
             </h3>
             {rateData && rateData.lastUpdated && (
@@ -1387,10 +1498,10 @@ export default function InventoryDashboardPage() {
                 {error}
               </div>
             )}
-            <form onSubmit={saveRates} style={{ display: 'grid', gap: '1rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+            <form onSubmit={saveRates} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontSize: '0.9rem', fontWeight: '600' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333', fontSize: '14px', fontWeight: '600' }}>
                     18K Gold Price
                   </label>
                   <input
@@ -1401,17 +1512,17 @@ export default function InventoryDashboardPage() {
                     onChange={(e) => setGoldRates({ ...goldRates, '18K': Number(e.target.value) })}
                     style={{
                       width: '100%',
-                      padding: '0.8rem',
+                      padding: '12px 16px',
                       border: '1px solid #ddd',
-                      borderRadius: 8,
-                      fontSize: '1rem',
+                      borderRadius: '8px',
+                      fontSize: '16px',
                       fontFamily: 'Poppins, sans-serif',
                       boxSizing: 'border-box'
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontSize: '0.9rem', fontWeight: '600' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333', fontSize: '14px', fontWeight: '600' }}>
                     22K Gold Price
                   </label>
                   <input
@@ -1422,17 +1533,17 @@ export default function InventoryDashboardPage() {
                     onChange={(e) => setGoldRates({ ...goldRates, '22K': Number(e.target.value) })}
                     style={{
                       width: '100%',
-                      padding: '0.8rem',
+                      padding: '12px 16px',
                       border: '1px solid #ddd',
-                      borderRadius: 8,
-                      fontSize: '1rem',
+                      borderRadius: '8px',
+                      fontSize: '16px',
                       fontFamily: 'Poppins, sans-serif',
                       boxSizing: 'border-box'
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', color: '#333', fontSize: '0.9rem', fontWeight: '600' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333', fontSize: '14px', fontWeight: '600' }}>
                     24K Gold Price
                   </label>
                   <input
@@ -1443,28 +1554,28 @@ export default function InventoryDashboardPage() {
                     onChange={(e) => setGoldRates({ ...goldRates, '24K': Number(e.target.value) })}
                     style={{
                       width: '100%',
-                      padding: '0.8rem',
+                      padding: '12px 16px',
                       border: '1px solid #ddd',
-                      borderRadius: 8,
-                      fontSize: '1rem',
+                      borderRadius: '8px',
+                      fontSize: '16px',
                       fontFamily: 'Poppins, sans-serif',
                       boxSizing: 'border-box'
                     }}
                   />
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '8px' }}>
                 <button
                   type="submit"
                   disabled={isSavingRates}
                   style={{
-                    flex: 1,
-                    padding: '0.8rem 1.5rem',
+                    width: '100%',
+                    padding: '14px 16px',
                     background: '#6f0022',
                     color: '#fff',
                     border: 'none',
-                    borderRadius: 8,
-                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    fontSize: '16px',
                     fontWeight: '600',
                     cursor: isSavingRates ? 'not-allowed' : 'pointer',
                     fontFamily: 'Poppins, sans-serif',
@@ -1478,12 +1589,13 @@ export default function InventoryDashboardPage() {
                   type="button"
                   onClick={() => setShowRatesModal(false)}
                   style={{
-                    padding: '0.8rem 1.5rem',
+                    width: '100%',
+                    padding: '14px 16px',
                     background: '#fff',
                     color: '#666',
                     border: '1px solid #ddd',
-                    borderRadius: 8,
-                    fontSize: '0.95rem',
+                    borderRadius: '8px',
+                    fontSize: '16px',
                     cursor: 'pointer',
                     fontFamily: 'Poppins, sans-serif'
                   }}
@@ -1514,7 +1626,6 @@ export default function InventoryDashboardPage() {
         zIndex: 1000
       }}>
         {[
-          { id: 'dashboard', icon: FiHome, label: 'Dashboard' },
           { id: 'stock', icon: FiBox, label: 'Stock Management' },
           { id: 'rates', icon: FiTrendingUp, label: 'Gold Rates' },
           { id: 'suppliers', icon: FiTruck, label: 'Suppliers' },
