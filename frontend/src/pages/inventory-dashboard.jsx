@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import authManager from '../auth.js';
-import { FiBox, FiTrendingUp, FiTruck, FiLogOut, FiAlertTriangle, FiMenu, FiX } from 'react-icons/fi';
+import { FiBox, FiTrendingUp, FiTruck, FiLogOut, FiAlertTriangle, FiMenu, FiX, FiHome } from 'react-icons/fi';
 
 const emptyStock = {
   name: '',
@@ -21,7 +21,7 @@ const emptySupplier = {
 
 export default function InventoryDashboardPage() {
   const [staffUser, setStaffUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('stock'); // 'alerts', 'stock', 'rates', 'suppliers'
+  const [activeTab, setActiveTab] = useState('dashboard'); // 'dashboard', 'stock', 'rates', 'suppliers', 'alerts'
   
   // Stock state
   const [stockRows, setStockRows] = useState([]);
@@ -41,9 +41,6 @@ export default function InventoryDashboardPage() {
   const [editingSupplier, setEditingSupplier] = useState(null);
 
   const [error, setError] = useState('');
-  const [isLogoutHovered, setIsLogoutHovered] = useState(false);
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isMobileView, setIsMobileView] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1024 : false));
 
   // Modal states
   const [showStockModal, setShowStockModal] = useState(false);
@@ -80,37 +77,6 @@ export default function InventoryDashboardPage() {
     }
     bootstrap();
   }, []);
-
-  useEffect(() => {
-    function handleResize() {
-      const mobile = window.innerWidth < 1024;
-      setIsMobileView(mobile);
-      if (!mobile) {
-        setIsMobileNavOpen(false);
-      }
-    }
-
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (!isMobileView || !isMobileNavOpen) return undefined;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isMobileNavOpen, isMobileView]);
-
-  useEffect(() => {
-    if (isMobileView) {
-      setIsMobileNavOpen(false);
-    }
-  }, [activeTab, isMobileView]);
 
   // ============ STOCK FUNCTIONS ============
   async function loadStock() {
@@ -400,229 +366,12 @@ export default function InventoryDashboardPage() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#fafbfc', position: 'relative' }}>
-      {isMobileView && (
-        <button
-          type="button"
-          onClick={() => setIsMobileNavOpen((prev) => !prev)}
-          style={{
-            position: 'fixed',
-            top: '1rem',
-            left: '1rem',
-            zIndex: 220,
-            border: 'none',
-            background: '#6f0022',
-            color: '#fff',
-            width: '44px',
-            height: '44px',
-            borderRadius: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.22)',
-            cursor: 'pointer'
-          }}
-          aria-label={isMobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
-        >
-          {isMobileNavOpen ? <FiX size={24} /> : <FiMenu size={24} />}
-        </button>
-      )}
-
-      {isMobileView && isMobileNavOpen && (
-        <div
-          onClick={() => setIsMobileNavOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(23, 12, 18, 0.45)',
-            zIndex: 140
-          }}
-        />
-      )}
-
-      {/* Sidebar */}
-      <aside style={{
-        width: '320px',
-        background: '#6f0022',
-        color: '#fff',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'fixed',
-        height: '100vh',
-        left: 0,
-        top: 0,
-        zIndex: 200,
-        transform: isMobileView ? (isMobileNavOpen ? 'translateX(0)' : 'translateX(-105%)') : 'translateX(0)',
-        transition: 'transform 0.25s ease',
-        boxShadow: isMobileView ? '0 16px 28px rgba(0, 0, 0, 0.24)' : 'none'
-      }}>
-        {/* Sidebar Header */}
-        <div style={{
-          padding: '2rem 1.5rem 1.5rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
-        }}>
-          <h1 style={{
-            margin: 0,
-            fontSize: '1.2rem',
-            fontFamily: 'Cormorant Garamond, serif',
-            fontWeight: 600,
-            letterSpacing: '0.5px',
-            color: '#e0bf63',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.6rem',
-            textTransform: 'uppercase'
-          }}>
-            <FiBox size={28} />
-            Inventory
-          </h1>
-        </div>
-
-        {/* Navigation Items */}
-        <nav style={{
-          flex: 1,
-          padding: '1.5rem 1rem',
-          overflowY: 'auto'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {[
-              { id: 'stock', icon: FiBox, label: 'Stock Management' },
-              { id: 'rates', icon: FiTrendingUp, label: 'Gold Rates' },
-              { id: 'suppliers', icon: FiTruck, label: 'Suppliers' },
-              { id: 'alerts', icon: FiAlertTriangle, label: 'Stock Alerts' }
-            ].map(item => {
-              const isActive = activeTab === item.id;
-              const IconComponent = item.icon;
-              const alertCount = item.id === 'alerts' ? lowStockAlerts.length : 0;
-              return (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveTab(item.id);
-                    if (isMobileView) {
-                      setIsMobileNavOpen(false);
-                    }
-                  }}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    width: '100%',
-                    padding: '1rem 1rem',
-                    background: isActive ? '#e0bf63' : 'transparent',
-                    color: isActive ? '#3d2b00' : '#fff',
-                    border: 'none',
-                    borderRadius: '10px',
-                    fontSize: '1.1rem',
-                    fontFamily: 'Poppins, sans-serif',
-                    fontWeight: isActive ? 600 : 500,
-                    cursor: 'pointer',
-                    transition: 'all 0.3s',
-                    textAlign: 'left',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'rgba(224, 191, 99, 0.1)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.background = 'transparent';
-                    }
-                  }}
-                >
-                  <IconComponent size={24} style={{ minWidth: '24px' }} />
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {alertCount > 0 && (
-                    <div style={{
-                      background: '#d32f2f',
-                      color: '#fff',
-                      borderRadius: '50%',
-                      width: '24px',
-                      height: '24px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '0.75rem',
-                      fontWeight: '700',
-                      flexShrink: 0
-                    }}>
-                      {alertCount}
-                    </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
-
-        {/* User Profile Section */}
-        <div style={{
-          padding: '1.5rem',
-          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '1rem'
-        }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            borderRadius: '50%',
-            background: '#e0bf63',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            color: '#3d2b00',
-            flexShrink: 0
-          }}>
-            {staffUser?.fullName?.charAt(0).toUpperCase()}
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{
-              fontWeight: 600,
-              fontSize: '0.95rem',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
-            }}>
-              Hello, {staffUser?.fullName?.split(' ')[0]}
-            </div>
-          </div>
-          <button
-            onClick={() => authManager.logout()}
-            style={{
-              background: isLogoutHovered ? 'rgba(255, 255, 255, 0.3)' : 'rgba(255, 255, 255, 0.2)',
-              color: '#fff',
-              border: 'none',
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '1.2rem',
-              transition: 'background 0.2s',
-              flexShrink: 0
-            }}
-            title="Logout"
-            onMouseEnter={() => setIsLogoutHovered(true)}
-            onMouseLeave={() => setIsLogoutHovered(false)}
-          >
-            <FiLogOut size={20} />
-          </button>
-        </div>
-      </aside>
 
       {/* Main Content */}
       <main style={{
-        marginLeft: isMobileView ? 0 : '320px',
         flex: 1,
         overflow: 'auto',
-        padding: isMobileView ? '5rem 1rem 1.25rem' : '2rem'
+        padding: '2rem 1rem 5rem'
       }}>
         {/* Stats */}
         <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
@@ -856,6 +605,16 @@ export default function InventoryDashboardPage() {
               </form>
             </section>
           )}
+        </div>
+      )}
+
+      {/* DASHBOARD TAB */}
+      {activeTab === 'dashboard' && (
+        <div>
+          <section style={{ background: '#fff', border: '1px solid #eee', borderRadius: 12, padding: '2rem', textAlign: 'center' }}>
+            <h2 style={{ margin: '0 0 1rem', color: '#6f0022', fontSize: '1.5rem', fontFamily: 'Cormorant Garamond, serif' }}>Welcome to Inventory Dashboard</h2>
+            <p style={{ margin: 0, color: '#666', fontSize: '1rem' }}>Manage your stock, rates, suppliers, and monitor alerts efficiently.</p>
+          </section>
         </div>
       )}
 
@@ -1737,6 +1496,89 @@ export default function InventoryDashboardPage() {
         </div>
       )}
       </main>
+
+      {/* Bottom Navigation */}
+      <nav style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        width: '100%',
+        height: '80px',
+        background: 'linear-gradient(to top, #ffffff, #f0f0f0)',
+        boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.1)',
+        borderTopLeftRadius: '20px',
+        borderTopRightRadius: '20px',
+        display: 'flex',
+        justifyContent: 'space-around',
+        alignItems: 'center',
+        zIndex: 1000
+      }}>
+        {[
+          { id: 'dashboard', icon: FiHome, label: 'Dashboard' },
+          { id: 'stock', icon: FiBox, label: 'Stock Management' },
+          { id: 'rates', icon: FiTrendingUp, label: 'Gold Rates' },
+          { id: 'suppliers', icon: FiTruck, label: 'Suppliers' },
+          { id: 'alerts', icon: FiAlertTriangle, label: 'Stock Alerts' },
+          { id: 'logout', icon: FiLogOut, label: 'Logout' }
+        ].map(item => {
+          const isActive = activeTab === item.id && item.id !== 'logout';
+          const IconComponent = item.icon;
+          const alertCount = item.id === 'alerts' ? lowStockAlerts.length : 0;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => {
+                if (item.id === 'logout') {
+                  authManager.logout();
+                } else {
+                  setActiveTab(item.id);
+                }
+              }}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '8px',
+                background: 'transparent',
+                border: 'none',
+                color: item.id === 'logout' ? '#d32f2f' : (activeTab === item.id ? '#6f0022' : '#666'),
+                fontSize: '12px',
+                fontFamily: 'Poppins, sans-serif',
+                fontWeight: item.id === 'logout' ? 600 : (activeTab === item.id ? 600 : 500),
+                cursor: 'pointer',
+                transition: 'all 0.3s',
+                borderRadius: '8px',
+                position: 'relative',
+                minWidth: '60px'
+              }}
+            >
+              <IconComponent size={24} style={{ marginBottom: '4px' }} />
+              <span>{item.label}</span>
+              {alertCount > 0 && item.id === 'alerts' && (
+                <div style={{
+                  position: 'absolute',
+                  top: '4px',
+                  right: '4px',
+                  background: '#d32f2f',
+                  color: '#fff',
+                  borderRadius: '50%',
+                  width: '18px',
+                  height: '18px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '10px',
+                  fontWeight: '700'
+                }}>
+                  {alertCount}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </nav>
     </div>
   );
 }
