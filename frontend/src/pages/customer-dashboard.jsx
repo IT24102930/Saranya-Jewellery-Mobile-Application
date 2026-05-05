@@ -388,6 +388,10 @@ export default function CustomerDashboardPage() {
             <i className="fas fa-gem" />
             <span>Shop</span>
           </a>
+          <a href="/customer-support" className="dash-action-btn">
+            <i className="fas fa-headset" />
+            <span>Support</span>
+          </a>
           <button type="button" onClick={logout} className="dash-action-btn dash-action-danger">
             <i className="fas fa-sign-out-alt" />
             <span>Logout</span>
